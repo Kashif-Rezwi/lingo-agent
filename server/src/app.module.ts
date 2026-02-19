@@ -13,4 +13,4 @@ import { HealthController } from './health.controller';
   controllers: [AppController, HealthController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

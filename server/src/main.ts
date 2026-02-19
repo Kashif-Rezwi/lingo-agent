@@ -35,7 +35,11 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   logger.log(`Application is running on: http://localhost:${port}/api`);
-  logger.log(`Swagger documentation is available on: http://localhost:${port}/docs`);
+  logger.log(
+    `Swagger documentation is available on: http://localhost:${port}/docs`,
+  );
 }
-bootstrap();
-
+bootstrap().catch((err) => {
+  console.error('Error during bootstrap', err);
+  process.exit(1);
+});

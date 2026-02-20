@@ -25,7 +25,6 @@ export default function DashboardPage() {
             setIsLoading(true);
             try {
                 const { jobId } = await startJob({ repoUrl, locales, githubToken });
-                // Navigate to dedicated job page — each job has its own shareable URL
                 router.push(`/jobs/${jobId}`);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to start job.');
@@ -38,22 +37,22 @@ export default function DashboardPage() {
 
     if (status === 'loading') {
         return (
-            <main className="min-h-screen bg-slate-950 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400" />
+            <main className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin-slow rounded-full h-8 w-8 border-2 border-indigo-500/30 border-t-indigo-400" />
             </main>
         );
     }
 
     return (
-        <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+        <main className="min-h-screen">
             {/* Header */}
-            <header className="border-b border-slate-800/60 py-4 px-6 flex items-center justify-between">
+            <header className="border-b border-white/5 py-4 px-6 flex items-center justify-between glass sticky top-0 z-20">
                 <div className="flex items-center gap-3">
-                    <span className="text-xl font-bold tracking-tight">
+                    <span className="text-lg font-bold tracking-tight text-white">
                         Lingo<span className="text-indigo-400">Agent</span>
                     </span>
-                    <span className="text-xs text-slate-500 hidden sm:block">
-                        Multilingual support, automated.
+                    <span className="hidden sm:block text-[11px] text-slate-500 bg-slate-800/60 border border-slate-700/50 px-2 py-0.5 rounded-full">
+                        Next.js App Router
                     </span>
                 </div>
                 <div className="flex items-center gap-4">
@@ -63,7 +62,7 @@ export default function DashboardPage() {
                             alt={session.user.name ?? 'User'}
                             width={28}
                             height={28}
-                            className="rounded-full ring-2 ring-slate-700"
+                            className="rounded-full ring-2 ring-indigo-500/30"
                         />
                     )}
                     <button
@@ -75,17 +74,20 @@ export default function DashboardPage() {
                 </div>
             </header>
 
-            {/* Main content */}
-            <div className="max-w-2xl mx-auto px-6 py-12 space-y-8">
+            {/* Main */}
+            <div className="max-w-2xl mx-auto px-6 py-14 space-y-8 animate-fade-up">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight mb-2">Add multilingual support</h1>
-                    <p className="text-slate-400 text-sm">
-                        Paste your Next.js GitHub repository URL, pick target languages, and LingoAgent will
-                        open a PR with full translation support — automatically.
+                    <h1 className="text-3xl font-bold tracking-tight text-white mb-2">
+                        Add multilingual support
+                    </h1>
+                    <p className="text-slate-400 text-sm leading-relaxed">
+                        Paste a Next.js GitHub repo URL, pick target languages, and LingoAgent opens a PR
+                        with full i18n support — automatically.
                     </p>
                 </div>
 
-                <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm">
+                {/* Form card */}
+                <div className="glass rounded-2xl p-6 glow-indigo">
                     <RepoInputForm
                         onSubmit={handleSubmit}
                         isLoading={isLoading}
@@ -93,11 +95,18 @@ export default function DashboardPage() {
                     />
                 </div>
 
+                {/* Error */}
                 {error && (
-                    <div className="bg-red-950/40 border border-red-700/40 rounded-xl p-4">
+                    <div className="animate-fade-in glass border border-red-500/20 rounded-xl p-4">
                         <p className="text-red-400 text-sm font-medium">{error}</p>
                     </div>
                 )}
+
+                {/* Tip */}
+                <p className="text-center text-slate-600 text-xs">
+                    ✦ Supports Next.js App Router repositories · Private repos require{' '}
+                    <code className="text-slate-500">repo</code> scope
+                </p>
             </div>
         </main>
     );

@@ -1,3 +1,180 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ─── Design Tokens ─────────────────────────────── */
+:root {
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --bg-base: #080810;
+    --glow-indigo: 0 0 40px rgba(99, 102, 241, 0.25);
+    --glow-emerald: 0 0 40px rgba(52, 211, 153, 0.2);
+    --glow-red: 0 0 30px rgba(239, 68, 68, 0.2);
+}
+
+/* ─── Base ───────────────────────────────────────── */
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: var(--bg-base);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Scrollbar ──────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3);
+    border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.55);
+}
+
+/* ─── Animations ─────────────────────────────────── */
+@keyframes fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}
+
+@keyframes spin-slow {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes orb-float {
+
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    50% {
+        transform: translate(20px, -20px) scale(1.05);
+    }
+}
+
+/* ─── Utility Classes ────────────────────────────── */
+.animate-fade-up {
+    animation: fade-up 0.4s ease forwards;
+}
+
+.animate-fade-in {
+    animation: fade-in 0.3s ease forwards;
+}
+
+.animate-blink {
+    animation: blink 1s step-end infinite;
+}
+
+.animate-orb {
+    animation: orb-float 8s ease-in-out infinite;
+}
+
+.animate-orb-delay {
+    animation: orb-float 10s ease-in-out infinite reverse;
+}
+
+.animate-spin-slow {
+    animation: spin-slow 3s linear infinite;
+}
+
+/* Log entry stagger */
+.log-entry {
+    animation: fade-up 0.2s ease forwards;
+    opacity: 0;
+}
+
+.log-entry:nth-child(1) {
+    animation-delay: 0ms;
+}
+
+.log-entry:nth-child(2) {
+    animation-delay: 30ms;
+}
+
+.log-entry:nth-child(3) {
+    animation-delay: 60ms;
+}
+
+.log-entry:nth-child(4) {
+    animation-delay: 90ms;
+}
+
+.log-entry:nth-child(n+5) {
+    animation-delay: 120ms;
+}
+
+/* ─── Glow Utilities ─────────────────────────────── */
+.glow-indigo {
+    box-shadow: var(--glow-indigo);
+}
+
+.glow-emerald {
+    box-shadow: var(--glow-emerald);
+}
+
+/* ─── Glass Card ─────────────────────────────────── */
+.glass {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}

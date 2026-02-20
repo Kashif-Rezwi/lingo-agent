@@ -60,3 +60,6 @@ client/generated/prisma
 
 # Claude Code History
 claude-code-history.pdf
+
+# TypeScript Cache
+*.tsbuildinfo

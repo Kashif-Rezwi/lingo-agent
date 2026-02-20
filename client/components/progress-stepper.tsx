@@ -6,32 +6,51 @@ interface ProgressStepperProps {
     hasError: boolean;
 }
 
+const STEP_ICONS: Record<string, string> = {
+    clone_repo: '⬇',
+    detect_framework: '🔍',
+    analyze_repo: '📋',
+    setup_lingo: '⚙',
+    install_and_translate: '🌐',
+    commit_and_push: '🔀',
+    trigger_preview: '🚀',
+};
+
 export function ProgressStepper({ currentStep, isComplete, hasError }: ProgressStepperProps) {
     const currentIndex = PIPELINE_STEPS.findIndex((s) => s.id === currentStep);
 
     return (
-        <div className="flex items-center gap-1 flex-wrap">
-            {PIPELINE_STEPS.map((step, idx) => {
-                const isDone = isComplete || idx < currentIndex;
-                const isActive = idx === currentIndex && !isComplete;
-                const isError = hasError && idx === currentIndex;
+        <div className="space-y-3">
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Pipeline</p>
+            <div className="flex items-center gap-1 flex-wrap">
+                {PIPELINE_STEPS.map((step, idx) => {
+                    const isDone = isComplete || (currentIndex >= 0 && idx < currentIndex);
+                    const isActive = idx === currentIndex && !isComplete && !hasError;
+                    const isErrored = hasError && idx === currentIndex;
 
-                let dotClass = 'bg-slate-700 text-slate-500';
-                if (isError) dotClass = 'bg-red-500/20 text-red-400 border border-red-500/50';
-                else if (isDone) dotClass = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50';
-                else if (isActive) dotClass = 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/50 animate-pulse';
+                    let cls = 'bg-slate-800/60 border-slate-700/60 text-slate-500';
+                    if (isErrored) cls = 'bg-red-500/10 border-red-500/40 text-red-400';
+                    else if (isDone) cls = 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400';
+                    else if (isActive) cls = 'bg-indigo-500/15 border-indigo-500/50 text-indigo-300 shadow-sm shadow-indigo-500/20';
 
-                return (
-                    <div key={step.id} className="flex items-center gap-1">
-                        <div className={`px-2 py-0.5 rounded-full text-xs font-medium transition-all duration-300 ${dotClass}`}>
-                            {step.label}
+                    return (
+                        <div key={step.id} className="flex items-center gap-1">
+                            <div
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all duration-300 ${cls} ${isActive ? 'animate-pulse' : ''}`}
+                            >
+                                <span className="text-[10px]">{STEP_ICONS[step.id] ?? '•'}</span>
+                                <span>{step.label}</span>
+                                {isDone && <span className="text-[10px]">✓</span>}
+                            </div>
+                            {idx < PIPELINE_STEPS.length - 1 && (
+                                <div
+                                    className={`h-px w-4 flex-shrink-0 transition-all duration-500 ${isDone ? 'bg-emerald-500/50' : 'bg-slate-700/60'}`}
+                                />
+                            )}
                         </div>
-                        {idx < PIPELINE_STEPS.length - 1 && (
-                            <div className={`h-px w-3 transition-all duration-300 ${isDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
-                        )}
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
         </div>
     );
 }

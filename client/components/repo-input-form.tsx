@@ -69,9 +69,30 @@ export function RepoInputForm({ onSubmit, isLoading, isStreaming }: RepoInputFor
             <button
                 type="submit"
                 disabled={isBusy}
-                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white font-semibold text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/20"
+                className="group w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 active:scale-[0.99] text-white font-semibold text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40"
             >
-                {isLoading ? 'Starting…' : isStreaming ? 'Running pipeline…' : '🌍 Add Multilingual Support'}
+                {isLoading ? (
+                    <>
+                        <span className="animate-spin-slow h-4 w-4 rounded-full border-2 border-white/30 border-t-white flex-shrink-0" />
+                        Starting pipeline…
+                    </>
+                ) : isStreaming ? (
+                    <>
+                        <span className="animate-spin-slow h-4 w-4 rounded-full border-2 border-white/30 border-t-white flex-shrink-0" />
+                        Pipeline running…
+                    </>
+                ) : (
+                    <>
+                        {/* Sparkle / translate icon */}
+                        <svg className="w-4 h-4 flex-shrink-0 transition-transform duration-200 group-hover:rotate-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                        </svg>
+                        Translate & Open PR
+                        <svg className="w-4 h-4 flex-shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                        </svg>
+                    </>
+                )}
             </button>
         </form>
     );

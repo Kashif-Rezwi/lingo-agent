@@ -1,36 +1,27 @@
 import type { LogEntry } from '@/types/job';
 
-const LEVEL_STYLES: Record<string, string> = {
-    info: 'text-blue-400',
-    success: 'text-emerald-400',
-    error: 'text-red-400',
-    warn: 'text-amber-400',
+const STATUS_STYLES: Record<string, { dot: string; text: string }> = {
+    info: { dot: 'bg-slate-500', text: 'text-slate-300' },
+    success: { dot: 'bg-emerald-400', text: 'text-emerald-300' },
+    error: { dot: 'bg-red-400', text: 'text-red-300' },
+    warn: { dot: 'bg-yellow-400', text: 'text-yellow-300' },
 };
 
-const LEVEL_DOTS: Record<string, string> = {
-    info: 'bg-blue-400',
-    success: 'bg-emerald-400',
-    error: 'bg-red-400',
-    warn: 'bg-amber-400',
-};
-
-interface LogEntryProps {
-    entry: LogEntry;
-}
-
-export function LogEntryRow({ entry }: LogEntryProps) {
-    const textClass = LEVEL_STYLES[entry.level] ?? 'text-slate-400';
-    const dotClass = LEVEL_DOTS[entry.level] ?? 'bg-slate-400';
+export function LogEntryRow({ entry }: { entry: LogEntry }) {
+    const style = STATUS_STYLES[entry.level] ?? STATUS_STYLES.info;
 
     return (
-        <div className="flex items-start gap-3 py-1">
-            <span className={`mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0 ${dotClass}`} />
-            <div className="flex-1 min-w-0">
-                {entry.step && (
-                    <span className="text-slate-500 text-xs font-mono mr-2">[{entry.step}]</span>
-                )}
-                <span className={`text-sm font-mono ${textClass}`}>{entry.message}</span>
-            </div>
+        <div className="log-entry flex items-start gap-2 py-0.5 leading-relaxed">
+            {/* Status dot */}
+            <span className={`mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full ${style.dot}`} />
+            {/* Step label */}
+            {entry.step && (
+                <span className="flex-shrink-0 text-[10px] text-indigo-400/70 bg-indigo-500/10 border border-indigo-500/20 rounded px-1 py-px font-mono leading-none mt-px">
+                    {entry.step}
+                </span>
+            )}
+            {/* Message */}
+            <span className={`${style.text} break-all`}>{entry.message}</span>
         </div>
     );
 }

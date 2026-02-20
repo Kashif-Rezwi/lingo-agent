@@ -57,3 +57,6 @@ lerna-debug.log*
 server/generated/prisma
 client/generated/prisma
 **/generated/prisma
+
+# Claude Code History
+claude-code-history.pdf

@@ -1,19 +1,19 @@
-import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata } from 'next';
+import { SessionProvider } from '@/app/session-provider';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: "LingoAgent",
-  description: "A multilingual adoption accelerator — an autonomous agent pipeline that removes friction between wanting multilingual support and having a working implementation.",
+  title: 'LingoAgent — Multilingual Support, Automated',
+  description:
+    'LingoAgent autonomously adds international support to Next.js repositories — one PR, one preview, zero configuration.',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="bg-slate-950 antialiased">
+        <SessionProvider>{children}</SessionProvider>
+      </body>
     </html>
   );
 }

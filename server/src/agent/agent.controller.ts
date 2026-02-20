@@ -1,10 +1,11 @@
-import { Controller, Post, Get, Param, Body, Sse, Logger, NotFoundException } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, Sse, Logger, NotFoundException, UseGuards } from '@nestjs/common';
 import { Observable, map } from 'rxjs';
 import type { MessageEvent } from '@nestjs/common';
 
 import { AgentService } from './agent.service.js';
 import { StartJobDto } from './dto/start-job.dto.js';
 import { JobResponseDto } from './dto/job-response.dto.js';
+import { AuthGuard } from '../auth/auth.guard.js';
 
 /** Exposes the agent pipeline via REST + SSE endpoints. */
 @Controller('agent')
@@ -14,6 +15,7 @@ export class AgentController {
     constructor(private readonly agent: AgentService) { }
 
     /** Starts pipeline async and returns jobId. Client uses SSE for live events. */
+    @UseGuards(AuthGuard)
     @Post('run')
     async run(@Body() dto: StartJobDto): Promise<JobResponseDto> {
         const jobId = await this.agent.startJob(dto.repoUrl, dto.locales, dto.githubToken);

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { generateText, stepCountIs } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { Subject, Observable } from 'rxjs';
 
 import { JobsService } from '../jobs/jobs.service.js';
@@ -30,7 +30,7 @@ export class AgentService {
     // One Subject per active job; removed on completion/error
     private readonly streams = new Map<string, Subject<SseEvent>>();
 
-    private readonly openaiApiKey: string;
+    private readonly googleApiKey: string;
     private readonly lingoApiKey: string;
 
     constructor(
@@ -41,7 +41,7 @@ export class AgentService {
         private readonly vercel: VercelService,
         private readonly config: ConfigService,
     ) {
-        this.openaiApiKey = this.config.getOrThrow<string>('OPENAI_API_KEY');
+        this.googleApiKey = this.config.getOrThrow<string>('GOOGLE_GENERATIVE_AI_API_KEY');
         this.lingoApiKey = this.config.getOrThrow<string>('LINGO_API_KEY');
     }
 
@@ -86,7 +86,7 @@ export class AgentService {
         try {
             await this.jobs.updateStatus(jobId, 'running');
 
-            const openai = createOpenAI({ apiKey: this.openaiApiKey });
+            const google = createGoogleGenerativeAI({ apiKey: this.googleApiKey });
 
             const tools = {
                 clone_repo: createCloneRepoTool(this.sandbox, emit),
@@ -106,7 +106,7 @@ export class AgentService {
 
             // AI SDK v6: stopWhen + stepCountIs replaces maxSteps
             const { steps } = await generateText({
-                model: openai('gpt-4o'),
+                model: google('gemini-3-flash-preview'),
                 system: AGENT_SYSTEM_PROMPT,
                 prompt: userMessage,
                 tools,

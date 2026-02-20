@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { SUPPORTED_LOCALES, DEMO_LOCALES } from '@/lib/constants';
+import { DEMO_LOCALES } from '@/lib/constants';
+import { LanguageSelector } from './language-selector';
 
 interface RepoInputFormProps {
     onSubmit: (repoUrl: string, locales: string[]) => void;
@@ -15,12 +16,6 @@ export function RepoInputForm({ onSubmit, isLoading, isStreaming }: RepoInputFor
     const [error, setError] = useState('');
 
     const isBusy = isLoading || isStreaming;
-
-    function toggleLocale(code: string) {
-        setSelectedLocales((prev) =>
-            prev.includes(code) ? prev.filter((l) => l !== code) : [...prev, code],
-        );
-    }
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -56,34 +51,14 @@ export function RepoInputForm({ onSubmit, isLoading, isStreaming }: RepoInputFor
                 />
             </div>
 
-            {/* Language Selector */}
-            <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-slate-300">Target Languages</label>
-                    <span className="text-xs text-slate-500">{selectedLocales.length} selected</span>
-                </div>
-                <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto pr-1">
-                    {SUPPORTED_LOCALES.map(({ code, label }) => {
-                        const active = selectedLocales.includes(code);
-                        return (
-                            <button
-                                key={code}
-                                type="button"
-                                onClick={() => toggleLocale(code)}
-                                disabled={isBusy}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150 disabled:opacity-40 ${active
-                                        ? 'bg-indigo-500/20 border-indigo-500/60 text-indigo-300'
-                                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300'
-                                    }`}
-                            >
-                                {label}
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
+            {/* Language Selector — standalone extracted component */}
+            <LanguageSelector
+                selected={selectedLocales}
+                onChange={setSelectedLocales}
+                disabled={isBusy}
+            />
 
-            {/* Error */}
+            {/* Validation Error */}
             {error && (
                 <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
                     {error}

@@ -2,24 +2,39 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { useAgentJob } from '@/hooks/use-agent-job';
+import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
+import { startJob } from '@/lib/api-client';
 import { RepoInputForm } from '@/components/repo-input-form';
-import { LogStream } from '@/components/log-stream';
-import { ResultCard } from '@/components/result-card';
 
 export default function DashboardPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    // Redirect if not authenticated
     useEffect(() => {
         if (status === 'unauthenticated') router.replace('/login');
     }, [status, router]);
 
     const githubToken = (session as typeof session & { githubToken?: string })?.githubToken ?? '';
 
-    const { submit, logs, result, error, isLoading, isStreaming } = useAgentJob({ githubToken });
+    const handleSubmit = useCallback(
+        async (repoUrl: string, locales: string[]) => {
+            setError(null);
+            setIsLoading(true);
+            try {
+                const { jobId } = await startJob({ repoUrl, locales, githubToken });
+                // Navigate to dedicated job page — each job has its own shareable URL
+                router.push(`/jobs/${jobId}`);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to start job.');
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        [githubToken, router],
+    );
 
     if (status === 'loading') {
         return (
@@ -43,10 +58,12 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-4">
                     {session?.user?.image && (
-                        <img
+                        <Image
                             src={session.user.image}
                             alt={session.user.name ?? 'User'}
-                            className="w-7 h-7 rounded-full ring-2 ring-slate-700"
+                            width={28}
+                            height={28}
+                            className="rounded-full ring-2 ring-slate-700"
                         />
                     )}
                     <button
@@ -60,41 +77,23 @@ export default function DashboardPage() {
 
             {/* Main content */}
             <div className="max-w-2xl mx-auto px-6 py-12 space-y-8">
-                {/* Greeting */}
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight mb-2">
-                        Add multilingual support
-                    </h1>
+                    <h1 className="text-3xl font-bold tracking-tight mb-2">Add multilingual support</h1>
                     <p className="text-slate-400 text-sm">
                         Paste your Next.js GitHub repository URL, pick target languages, and LingoAgent will
                         open a PR with full translation support — automatically.
                     </p>
                 </div>
 
-                {/* Form card */}
                 <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm">
                     <RepoInputForm
-                        onSubmit={submit}
+                        onSubmit={handleSubmit}
                         isLoading={isLoading}
-                        isStreaming={isStreaming}
+                        isStreaming={false}
                     />
                 </div>
 
-                {/* Log stream */}
-                {(logs.length > 0 || isStreaming) && (
-                    <LogStream
-                        logs={logs}
-                        isStreaming={isStreaming}
-                        isComplete={!!result}
-                        hasError={!!error && !isStreaming}
-                    />
-                )}
-
-                {/* Success result */}
-                {result && <ResultCard result={result} />}
-
-                {/* Error */}
-                {error && !isStreaming && (
+                {error && (
                     <div className="bg-red-950/40 border border-red-700/40 rounded-xl p-4">
                         <p className="text-red-400 text-sm font-medium">{error}</p>
                     </div>

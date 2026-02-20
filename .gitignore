@@ -1,15 +1,15 @@
 # Dependencies
 node_modules
-/.pnp
+.pnp
 .pnp.js
 
 # Testing
-/coverage
-/.nyc_output
+coverage
+.nyc_output
 
 # Next.js
-/.next/
-/out/
+.next/
+out/
 build
 
 # NestJS / Build Output

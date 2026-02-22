@@ -46,14 +46,27 @@ export class SandboxService implements OnModuleDestroy {
   }
 
   /** Runs a shell command inside the sandbox, returning result and exit code. */
-  async exec(sandboxId: string, cmd: string): Promise<CommandResult> {
+  async exec(sandboxId: string, cmd: string, timeoutMs?: number): Promise<CommandResult> {
     const sandbox = this.get(sandboxId);
-    const result = await sandbox.commands.run(cmd);
-    return {
-      stdout: result.stdout,
-      stderr: result.stderr,
-      exitCode: result.exitCode,
-    };
+    try {
+      const result = await sandbox.commands.run(cmd, timeoutMs !== undefined ? { timeoutMs } : undefined);
+      return {
+        stdout: result.stdout ?? '',
+        stderr: result.stderr ?? '',
+        exitCode: result.exitCode ?? 0,
+      };
+    } catch (err: any) {
+      // E2B throws on non-zero exit codes rather than returning a result object.
+      // Extract exit code from message like "exit status 128" and surface stdout/stderr.
+      const exitCodeMatch = String(err?.message || '').match(/exit status (\d+)/);
+      const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 1;
+      this.logger.debug(`exec threw (exit ${exitCode}): ${err?.message}`);
+      return {
+        stdout: err?.stdout ?? '',
+        stderr: err?.stderr ?? err?.message ?? String(err),
+        exitCode,
+      };
+    }
   }
 
   /** Reads the contents of a file from the sandbox filesystem. */

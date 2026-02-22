@@ -5,8 +5,6 @@ import { GithubService } from '../../github/github.service.js';
 import { parseGitHubUrl } from '../../common/utils/url-parser.js';
 import type { EmitFn } from '../../common/types/index.js';
 
-const BRANCH_NAME = 'lingo/add-multilingual-support';
-
 /** Tool 6 — commit_and_push: Commits sandbox changes (configs, locales) to a new GitHub branch and opens a PR. */
 export function createCommitPushTool(
   sandbox: SandboxService,
@@ -28,6 +26,7 @@ export function createCommitPushTool(
     }),
     execute: async ({ sandboxId, workDir, repoUrl, githubToken, locales, nextConfigPath, layoutPath }) => {
       const { owner, repo } = parseGitHubUrl(repoUrl);
+      const BRANCH_NAME = `lingo/add-multilingual-${Date.now()}`;
 
       emit({ level: 'info', message: 'Preparing files for commit…', timestamp: new Date(), step: 'commit_and_push' });
 
@@ -35,17 +34,21 @@ export function createCommitPushTool(
       // Convert absolute sandbox paths to repo-relative paths
       const toRelative = (abs: string) => abs.replace(`${workDir}/`, '');
 
-      // Core config files
+      // Core config files — include i18n runtime files so the runtime is committed
       const configFilePaths = [
+        `${workDir}/package.json`,
         `${workDir}/i18n.json`,
+        `${workDir}/app/i18n/provider.tsx`,
+        `${workDir}/app/i18n/switcher.tsx`,
+        `${workDir}/app/i18n/text-translator.tsx`,
         nextConfigPath,
         layoutPath,
       ];
 
-      // All generated locale files
+      // All generated locale files (in public/locales/ so Next.js serves them as static assets)
       const { stdout: localeFilesRaw } = await sandbox.exec(
         sandboxId,
-        `find ${workDir}/locales -type f 2>/dev/null || echo ""`,
+        `find ${workDir}/public/locales -type f 2>/dev/null || echo ""`,
       );
       const localeFilePaths = localeFilesRaw
         .split('\n')

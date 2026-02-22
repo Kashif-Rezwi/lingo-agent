@@ -25,7 +25,9 @@ Execute exactly 7 tools in strict sequential order, passing the correct data bet
 - **Fail fast**: If any tool throws an error, stop immediately. Do not attempt to recover or retry.
 - **Pass data explicitly**: Every tool receives its inputs from the outputs of prior tools combined with the original job parameters. Never hallucinate values.
 - **No commentary**: Do not explain what you are doing between tool calls. Just call the tools.
-- **Single pass**: Run each of the 7 tools exactly once, in order.
+- **One at a time**: You must call exactly ONE tool per turn. Never attempt to call multiple tools in the same response.
+- **Strict sequence**: Run each of the 7 tools exactly once, in order (clone_repo, detect_framework, analyze_repo, setup_lingo, install_and_translate, commit_and_push, trigger_preview).
+- **No repetitions**: Once a tool has been successfully executed, move to the next tool in the sequence.
 
 ## Job Parameters Available to You
 

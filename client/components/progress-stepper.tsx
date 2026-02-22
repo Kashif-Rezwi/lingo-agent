@@ -25,7 +25,7 @@ export function ProgressStepper({ currentStep, isComplete, hasError }: ProgressS
             <div className="flex items-center gap-1 flex-wrap">
                 {PIPELINE_STEPS.map((step, idx) => {
                     const isDone = isComplete || (currentIndex >= 0 && idx < currentIndex);
-                    const isActive = idx === currentIndex && !isComplete && !hasError;
+                    const isActive = currentIndex >= 0 && idx === currentIndex && !isComplete && !hasError;
                     const isErrored = hasError && idx === currentIndex;
 
                     let cls = 'bg-slate-800/60 border-slate-700/60 text-slate-500';

@@ -2,8 +2,9 @@
 
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { cancelJob } from '@/lib/api-client';
 import { useJobStream } from '@/hooks/use-job-stream';
 import { LogStream } from '@/components/log-stream';
 import { ResultCard } from '@/components/result-card';
@@ -21,6 +22,18 @@ export default function JobPage({ params }: JobPageProps) {
     }, [status, router]);
 
     const { logs, result, error, isStreaming } = useJobStream(params.jobId);
+    const [isCancelling, setIsCancelling] = useState(false);
+
+    const handleCancel = async () => {
+        if (!session?.githubToken) return;
+        try {
+            setIsCancelling(true);
+            await cancelJob(params.jobId, session.githubToken);
+        } catch (err) {
+            console.error('Failed to cancel job', err);
+            setIsCancelling(false); // only reset on error, stream unmounts on success
+        }
+    };
 
     if (status === 'loading') {
         return (
@@ -49,12 +62,29 @@ export default function JobPage({ params }: JobPageProps) {
                     </span>
                 </div>
                 <div className="flex items-center gap-3">
-                    {/* Live status badge */}
+                    {/* Live status badge & Stop button */}
                     {isLive && (
-                        <span className="flex items-center gap-1.5 text-xs text-indigo-300 bg-indigo-500/10 border border-indigo-500/25 rounded-full px-2.5 py-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-ping" />
-                            Live
-                        </span>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={handleCancel}
+                                disabled={isCancelling}
+                                className="group flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/20 hover:border-red-500/30 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/10"
+                                title="End pipeline immediately"
+                            >
+                                {isCancelling ? (
+                                    <span className="h-3 w-3 rounded-full border-2 border-red-400 border-t-red-500/20 animate-spin" />
+                                ) : (
+                                    <svg className="w-3 h-3 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                                        <rect x="6" y="6" width="12" height="12" rx="2" />
+                                    </svg>
+                                )}
+                                {isCancelling ? 'Stopping...' : 'End Pipeline'}
+                            </button>
+                            <span className="flex items-center gap-1.5 text-xs text-indigo-300 bg-indigo-500/10 border border-indigo-500/25 rounded-full px-2.5 py-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-ping" />
+                                Live
+                            </span>
+                        </div>
                     )}
                     {result && (
                         <span className="flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 rounded-full px-2.5 py-1">

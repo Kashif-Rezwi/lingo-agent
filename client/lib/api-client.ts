@@ -32,3 +32,17 @@ export async function startJob(opts: StartJobOptions): Promise<StartJobResponse>
 
     return res.json() as Promise<StartJobResponse>;
 }
+
+/** Cancels a running job */
+export async function cancelJob(jobId: string, githubToken: string): Promise<void> {
+    const res = await fetch(`${API_URL}/agent/cancel/${jobId}`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${githubToken}`,
+        },
+    });
+
+    if (!res.ok) {
+        throw new Error(`Cancel request failed: ${res.status}`);
+    }
+}

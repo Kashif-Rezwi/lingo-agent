@@ -37,4 +37,12 @@ export class AgentController {
             throw new NotFoundException(`No active stream for job ${jobId}`);
         }
     }
+
+    /** Manually aborts a running job */
+    @UseGuards(AuthGuard)
+    @Post('cancel/:jobId')
+    cancel(@Param('jobId') jobId: string) {
+        this.agent.cancelJob(jobId);
+        return { message: 'Job cancelled' };
+    }
 }

@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 
 /**
  * Connects to the Lingo.dev MCP server and exposes its tools.
@@ -34,7 +34,7 @@ export class McpService implements OnModuleInit, OnModuleDestroy {
   private async connect(): Promise<void> {
     try {
       this.client = new Client({ name: 'lingo-agent', version: '1.0.0' });
-      const transport = new StreamableHTTPClientTransport(new URL(this.serverUrl));
+      const transport = new SSEClientTransport(new URL(this.serverUrl));
       await this.client.connect(transport);
       this.connected = true;
       this.logger.log(`Connected to Lingo.dev MCP server at ${this.serverUrl}`);

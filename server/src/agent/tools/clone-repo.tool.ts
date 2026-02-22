@@ -25,11 +25,12 @@ export function createCloneRepoTool(sandbox: SandboxService, emit: EmitFn) {
       const { sandboxId } = await sandbox.create();
       emit({ level: 'info', message: 'Sandbox created — cloning…', timestamp: new Date(), step: 'clone_repo' });
 
-      const workDir = '/workspace';
+      const workDir = '/home/user/workspace';
       const result = await sandbox.exec(sandboxId, `git clone ${cloneUrl} ${workDir}`);
 
       if (result.exitCode !== 0) {
-        throw new Error(`git clone failed (exit ${result.exitCode}): ${result.stderr || result.stdout}`);
+        const errDetail = result.stderr?.trim() || result.stdout?.trim() || '(no output)';
+        throw new Error(`git clone failed (exit ${result.exitCode}): ${errDetail}`);
       }
 
       emit({ level: 'success', message: `Repository cloned into ${workDir}`, timestamp: new Date(), step: 'clone_repo' });

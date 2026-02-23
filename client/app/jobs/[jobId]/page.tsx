@@ -22,7 +22,7 @@ export default function JobPage({ params }: JobPageProps) {
         if (status === 'unauthenticated') router.replace('/login');
     }, [status, router]);
 
-    const { logs: streamLogs, result, error, isStreaming } = useJobStream(params.jobId, session?.githubToken);
+    const { logs: streamLogs, result, error, isStreaming, isLoading } = useJobStream(params.jobId, session?.githubToken);
     const [isCancelling, setIsCancelling] = useState(false);
     const { history, updateJob } = useJobHistory();
     const [didUpdate, setDidUpdate] = useState(false);
@@ -95,7 +95,7 @@ export default function JobPage({ params }: JobPageProps) {
     return (
         <main className="min-h-screen">
             {/* Header */}
-            <header className="border-b border-white/5 py-4 px-6 flex items-center justify-between glass sticky top-0 z-20">
+            <header className="border-b border-white/5 py-4 px-6 flex items-center justify-between glass fixed top-0 w-full z-50 left-0">
                 <div className="flex items-center gap-3">
                     <button
                         onClick={handleBack}
@@ -110,7 +110,7 @@ export default function JobPage({ params }: JobPageProps) {
                 </div>
                 <div className="flex items-center gap-3">
                     {/* Live status badge & Stop button */}
-                    {isLive && (
+                    {isLive && !isLoading && (
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={handleCancel}
@@ -133,12 +133,12 @@ export default function JobPage({ params }: JobPageProps) {
                             </span>
                         </div>
                     )}
-                    {result && (
+                    {result && !isLoading && (
                         <span className="flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 rounded-full px-2.5 py-1">
                             ✓ Done
                         </span>
                     )}
-                    {error && !isStreaming && (
+                    {error && !isStreaming && !isLoading && (
                         <span className="flex items-center gap-1.5 text-xs text-red-300 bg-red-500/10 border border-red-500/25 rounded-full px-2.5 py-1">
                             ✕ Failed
                         </span>
@@ -191,54 +191,81 @@ export default function JobPage({ params }: JobPageProps) {
                 </div>
             </header>
 
-            <div className="max-w-4xl mx-auto px-6 py-10 space-y-8 animate-fade-up">
+            <div className="max-w-4xl mx-auto px-6 pt-28 pb-10 space-y-8 animate-fade-up">
                 {/* Heading */}
                 <div className="space-y-1">
-                    <h1 className="text-2xl font-bold tracking-tight text-white">
-                        {result ? 'Pipeline complete 🎉' : error && !isStreaming ? 'Pipeline failed' : 'Translating repository…'}
-                    </h1>
-                    <p className="text-slate-600 text-xs font-mono">{params.jobId}</p>
+                    {isLoading ? (
+                        <>
+                            <div className="h-8 w-64 bg-white/5 rounded-lg animate-pulse mb-2" />
+                            <div className="h-4 w-48 bg-white/5 rounded animate-pulse" />
+                        </>
+                    ) : (
+                        <>
+                            <h1 className="text-2xl font-bold tracking-tight text-white">
+                                {result ? 'Pipeline complete 🎉' : error && !isStreaming ? 'Pipeline failed' : 'Translating repository…'}
+                            </h1>
+                            <p className="text-slate-600 text-xs font-mono">{params.jobId}</p>
+                        </>
+                    )}
                 </div>
 
-                {/* Connecting spinner */}
-                {displayLogs.length === 0 && isStreaming && (
-                    <div className="flex items-center gap-3 text-slate-400 text-sm animate-fade-in">
-                        <span className="animate-spin-slow rounded-full h-4 w-4 border-2 border-indigo-500/30 border-t-indigo-400 flex-shrink-0" />
-                        Connecting to pipeline…
+                {isLoading ? (
+                    <div className="space-y-8 animate-fade-in">
+                        {/* Stepper Skeleton */}
+                        <div className="space-y-4">
+                            <div className="h-3 w-16 bg-white/5 rounded animate-pulse" />
+                            <div className="flex gap-2.5 overflow-hidden">
+                                {[...Array(7)].map((_, i) => (
+                                    <div key={i} className="h-7 w-24 bg-white/5 rounded-full animate-pulse flex-shrink-0" />
+                                ))}
+                            </div>
+                        </div>
+                        {/* Terminal Skeleton */}
+                        <div className="h-72 w-full bg-[#05050c] border border-white/5 rounded-xl animate-pulse" />
                     </div>
-                )}
+                ) : (
+                    <>
+                        {/* Connecting spinner */}
+                        {displayLogs.length === 0 && isStreaming && (
+                            <div className="flex items-center gap-3 text-slate-400 text-sm animate-fade-in">
+                                <span className="animate-spin-slow rounded-full h-4 w-4 border-2 border-indigo-500/30 border-t-indigo-400 flex-shrink-0" />
+                                Connecting to pipeline…
+                            </div>
+                        )}
 
-                {/* Log stream */}
-                {(displayLogs.length > 0 || isStreaming) && (
-                    <div className="animate-fade-in">
-                        <LogStream
-                            logs={displayLogs}
-                            isStreaming={isStreaming}
-                            isComplete={!!result || historyEntry?.status === 'done'}
-                            hasError={(!!error && !isStreaming) || historyEntry?.status === 'failed'}
-                        />
-                    </div>
-                )}
+                        {/* Log stream */}
+                        {(displayLogs.length > 0 || isStreaming) && (
+                            <div className="animate-fade-in">
+                                <LogStream
+                                    logs={displayLogs}
+                                    isStreaming={isStreaming}
+                                    isComplete={!!result || historyEntry?.status === 'done'}
+                                    hasError={(!!error && !isStreaming) || historyEntry?.status === 'failed'}
+                                />
+                            </div>
+                        )}
 
-                {/* Result */}
-                {result && (
-                    <div className="animate-fade-up">
-                        <ResultCard result={result} />
-                    </div>
-                )}
+                        {/* Result */}
+                        {result && (
+                            <div className="animate-fade-up">
+                                <ResultCard result={result} />
+                            </div>
+                        )}
 
-                {/* Error */}
-                {error && !isStreaming && (
-                    <div className="animate-fade-in glass border border-red-500/20 rounded-xl p-5 space-y-3">
-                        <p className="text-red-400 font-semibold text-sm">Pipeline failed</p>
-                        <p className="text-red-300/70 text-sm leading-relaxed">{error}</p>
-                        <button
-                            onClick={() => router.push('/dashboard')}
-                            className="text-xs text-slate-400 hover:text-slate-200 underline underline-offset-2 transition-colors"
-                        >
-                            ← Start a new job
-                        </button>
-                    </div>
+                        {/* Error */}
+                        {error && !isStreaming && (
+                            <div className="animate-fade-in glass border border-red-500/20 rounded-xl p-5 space-y-3">
+                                <p className="text-red-400 font-semibold text-sm">Pipeline failed</p>
+                                <p className="text-red-300/70 text-sm leading-relaxed">{error}</p>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    className="text-xs text-slate-400 hover:text-slate-200 underline underline-offset-2 transition-colors"
+                                >
+                                    ← Start a new job
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </main>

@@ -34,6 +34,9 @@ export class AgentService {
     // Track abort controllers to allow manual cancellations
     private readonly abortControllers = new Map<string, AbortController>();
 
+    // Track active sandboxes per job for immediate termination on cancel
+    private readonly activeSandboxes = new Map<string, string>();
+
     private readonly groqApiKey: string;
     private readonly lingoApiKey: string;
 
@@ -85,8 +88,18 @@ export class AgentService {
         const ac = this.abortControllers.get(jobId);
         if (ac) {
             ac.abort(new Error('Job manually cancelled by user'));
-            this.abortControllers.delete(jobId);
             await this.jobs.setError(jobId, 'Cancelled by user');
+
+            // Terminate any running sandbox instantly for this job
+            const sandboxId = this.activeSandboxes.get(jobId);
+            if (sandboxId) {
+                try {
+                    await this.sandbox.kill(sandboxId);
+                } catch (e) {
+                    this.logger.warn(`[Job ${jobId}] Failed to kill sandbox on cancel: ${e}`);
+                }
+                this.activeSandboxes.delete(jobId);
+            }
         }
     }
 
@@ -168,6 +181,10 @@ export class AgentService {
             this.logger.log(`[Job ${jobId}] Starting pipeline with model: ${modelName}`);
 
             for (let i = 0; i < maxIterations; i++) {
+                if (this.abortControllers.get(jobId)?.signal.aborted) {
+                    throw new Error('Job manually cancelled by user');
+                }
+
                 if (currentToolIndex >= toolSequence.length) break;
 
                 const currentExpectedTool = toolSequence[currentToolIndex];
@@ -269,6 +286,7 @@ export class AgentService {
                 // Capture PR/preview URLs whenever available
                 if (toolOutput?.prUrl) prUrl = toolOutput.prUrl;
                 if (toolOutput?.previewUrl) previewUrl = toolOutput.previewUrl;
+                if (toolOutput?.sandboxId) this.activeSandboxes.set(jobId, toolOutput.sandboxId);
 
                 // Advance the sequence index
                 currentToolIndex++;
@@ -315,6 +333,7 @@ export class AgentService {
             }
             this.streams.delete(jobId);
             this.abortControllers.delete(jobId);
+            this.activeSandboxes.delete(jobId);
         }
     }
 }

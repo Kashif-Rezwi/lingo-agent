@@ -11,6 +11,7 @@ interface UseJobStreamResult {
     result: AgentResult | null;
     error: string | null;
     isStreaming: boolean;
+    isLoading: boolean;
 }
 
 /** Fetches initial job state, and opens a native EventSource SSE connection if still running. */
@@ -19,6 +20,7 @@ export function useJobStream(jobId: string | null, githubToken?: string | null):
     const [result, setResult] = useState<AgentResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isStreaming, setIsStreaming] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const esRef = useRef<EventSource | null>(null);
 
     const cleanup = useCallback(() => {
@@ -38,7 +40,8 @@ export function useJobStream(jobId: string | null, githubToken?: string | null):
             setLogs([]);
             setResult(null);
             setError(null);
-            setIsStreaming(true);
+            setIsStreaming(false);
+            setIsLoading(true);
 
             try {
                 const job = await getJob(jobId!, githubToken!);
@@ -47,16 +50,18 @@ export function useJobStream(jobId: string | null, githubToken?: string | null):
                 if (job.status === 'completed') {
                     setResult({ prUrl: job.prUrl, previewUrl: job.previewUrl });
                     if (job.logs && Array.isArray(job.logs)) setLogs(job.logs as any);
-                    setIsStreaming(false);
+                    setIsLoading(false);
                     return;
                 } else if (job.status === 'failed') {
                     setError(job.error || 'Job failed');
                     if (job.logs && Array.isArray(job.logs)) setLogs(job.logs as any);
-                    setIsStreaming(false);
+                    setIsLoading(false);
                     return;
                 }
 
                 // If running or pending, start the SSE stream
+                setIsStreaming(true);
+                setIsLoading(false);
                 const es = new EventSource(`${API_URL}/agent/stream/${jobId}`);
                 esRef.current = es;
 
@@ -87,6 +92,7 @@ export function useJobStream(jobId: string | null, githubToken?: string | null):
                 if (active) {
                     setError('Failed to fetch job status.');
                     setIsStreaming(false);
+                    setIsLoading(false);
                 }
             }
         }
@@ -99,5 +105,5 @@ export function useJobStream(jobId: string | null, githubToken?: string | null):
         };
     }, [jobId, githubToken, cleanup]);
 
-    return { logs, result, error, isStreaming };
+    return { logs, result, error, isStreaming, isLoading };
 }

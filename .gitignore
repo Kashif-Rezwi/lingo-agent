@@ -65,4 +65,9 @@ claude-code-history.pdf
 *.tsbuildinfo
 
 # Blueprint readme file
-# BLUEPRINT.md
+BLUEPRINT.md
+
+# Prisma config compiled artifacts
+server/prisma.config.js
+server/prisma.config.js.map
+server/prisma.config.d.ts

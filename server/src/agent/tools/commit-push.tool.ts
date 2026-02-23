@@ -34,18 +34,28 @@ export function createCommitPushTool(
       // Convert absolute sandbox paths to repo-relative paths
       const toRelative = (abs: string) => abs.replace(`${workDir}/`, '');
 
-      // Core config files — include i18n runtime files so the runtime is committed
-      const configFilePaths = [
+      const layoutDir = layoutPath.substring(0, layoutPath.lastIndexOf('/'));
+
+      // Required files — must exist; will throw on missing to surface problems early
+      const requiredFilePaths = [
         `${workDir}/package.json`,
         `${workDir}/i18n.json`,
-        `${workDir}/app/i18n/provider.tsx`,
-        `${workDir}/app/i18n/switcher.tsx`,
-        `${workDir}/app/i18n/text-translator.tsx`,
         nextConfigPath,
         layoutPath,
       ];
 
-      // All generated locale files (in public/locales/ so Next.js serves them as static assets)
+      // Possible lockfiles — only one will exist, rest are silently skipped
+      const lockFilePaths: string[] = [];
+
+      // Optional runtime files — custom i18n provider, switcher, translator
+      // Must be same directory as layout.tsx so relative imports resolve correctly
+      const optionalFilePaths = [
+        `${layoutDir}/i18n/provider.tsx`,
+        `${layoutDir}/i18n/switcher.tsx`,
+        `${layoutDir}/i18n/text-translator.tsx`,
+      ];
+
+      // All generated locale files (served as static assets from public/locales/)
       const { stdout: localeFilesRaw } = await sandbox.exec(
         sandboxId,
         `find ${workDir}/public/locales -type f 2>/dev/null || echo ""`,
@@ -55,15 +65,31 @@ export function createCommitPushTool(
         .map((p) => p.trim())
         .filter(Boolean);
 
-      const allFilePaths = [...configFilePaths, ...localeFilePaths];
-
-      // Read each file from the sandbox
-      const fileChanges = await Promise.all(
-        allFilePaths.map(async (absPath) => ({
+      // Read required files — throws on missing
+      const requiredChanges = await Promise.all(
+        requiredFilePaths.map(async (absPath) => ({
           path: toRelative(absPath),
           content: await sandbox.readFile(sandboxId, absPath),
         })),
       );
+
+      // Read optional files — silently skip missing ones
+      const optionalChanges = (
+        await Promise.all(
+          [...lockFilePaths, ...optionalFilePaths, ...localeFilePaths].map(async (absPath) => {
+            try {
+              const content = await sandbox.readFile(sandboxId, absPath);
+              return { path: toRelative(absPath), content };
+            } catch {
+              return null;
+            }
+          }),
+        )
+      ).filter((f): f is { path: string; content: string } => f !== null);
+
+      const fileChanges = [...requiredChanges, ...optionalChanges];
+
+
 
       emit({
         level: 'info',

@@ -81,6 +81,13 @@ export class SandboxService implements OnModuleDestroy {
     await sandbox.files.write(path, content);
   }
 
+  /** Resets the sandbox TTL to prevent timeout during long-running operations. */
+  async keepAlive(sandboxId: string, timeoutMs?: number): Promise<void> {
+    const sandbox = this.get(sandboxId);
+    await sandbox.setTimeout(timeoutMs ?? this.SANDBOX_TIMEOUT_MS);
+    this.logger.debug(`Sandbox ${sandboxId} timeout reset to ${(timeoutMs ?? this.SANDBOX_TIMEOUT_MS) / 1000}s`);
+  }
+
   /** Kills the sandbox and removes it from the tracking map. */
   async kill(sandboxId: string): Promise<void> {
     const sandbox = this.sandboxes.get(sandboxId);

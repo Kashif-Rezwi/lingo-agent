@@ -63,3 +63,6 @@ claude-code-history.pdf
 
 # TypeScript Cache
 *.tsbuildinfo
+
+# Blueprint readme file
+# BLUEPRINT.md

@@ -106,10 +106,10 @@ function isTranslatable(s, ctx) {
   if (!s || s.length < 2 || s.length > 500) return false;
   if (!/[a-zA-Z]/.test(s)) return false;
   if (/^[{}=<>\\\\/]/.test(s)) return false;
-  if (/^(import|export|const|let|var|function|return|class|type|interface|from|if|else|switch|case)\\b/.test(s)) return false;
+  if (/^(import|export|const|let|var|function|return|class|type|interface|from|if|else|switch|case)\b/.test(s)) return false;
   if (/[{}();=]/.test(s)) return false;
   if (s.startsWith('//') || s.startsWith('/*') || s.startsWith('#')) return false;
-  if (/^https?:\\/\\//.test(s)) return false;
+  if (/^https?:\/\//.test(s)) return false;
   // Single-word identifier filter — context-aware
   const isJSX = ctx && ctx.isJSX;
   if (/^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(s)) {
@@ -159,7 +159,7 @@ for (const file of files) {
   try {
     traverse(ast, {
       JSXText(path) {
-        const text = path.node.value.replace(/\\\\s+/g, ' ').trim();
+        const text = path.node.value.replace(/\s+/g, ' ').trim();
         if (isTranslatable(text, { isJSX: true })) strings.add(text);
       },
       StringLiteral(nodePath) {

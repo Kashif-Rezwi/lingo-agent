@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
 import { HealthController } from './health.controller.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { SandboxModule } from './sandbox/sandbox.module.js';
@@ -25,7 +23,7 @@ import { AgentModule } from './agent/agent.module.js';
     // Agent module — orchestrates the 7-tool pipeline via generateText
     AgentModule,
   ],
-  controllers: [AppController, HealthController],
-  providers: [AppService],
+  controllers: [HealthController],
+  providers: [],
 })
 export class AppModule { }

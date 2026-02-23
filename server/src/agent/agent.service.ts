@@ -331,6 +331,15 @@ export class AgentService {
             } catch (saveErr) {
                 this.logger.error(`[Job ${jobId}] Failed to save logs: ${saveErr}`);
             }
+            // Clean up the E2B sandbox to free resources
+            const remainingSandboxId = this.activeSandboxes.get(jobId);
+            if (remainingSandboxId) {
+                try {
+                    await this.sandbox.kill(remainingSandboxId);
+                } catch {
+                    // Ignore cleanup errors — sandbox may have already been killed (e.g. by cancelJob)
+                }
+            }
             this.streams.delete(jobId);
             this.abortControllers.delete(jobId);
             this.activeSandboxes.delete(jobId);

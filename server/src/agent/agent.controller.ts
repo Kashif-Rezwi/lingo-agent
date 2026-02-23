@@ -41,8 +41,8 @@ export class AgentController {
     /** Manually aborts a running job */
     @UseGuards(AuthGuard)
     @Post('cancel/:jobId')
-    cancel(@Param('jobId') jobId: string) {
-        this.agent.cancelJob(jobId);
+    async cancel(@Param('jobId') jobId: string) {
+        await this.agent.cancelJob(jobId);
         return { message: 'Job cancelled' };
     }
 

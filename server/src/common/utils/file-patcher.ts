@@ -1,67 +1,12 @@
 /** Pure string-transform utilities for patching Next.js config files and generating i18n runtime files. */
 
-// ---------------------------------------------------------------------------
-// next.config patch — uses @lingo.dev/compiler withLingo wrapper at build time
-// ---------------------------------------------------------------------------
-
-/** Wraps next.config default export with withLingo() so the compiler runs at Vercel build time. */
-export function patchNextConfigFull(content: string): string {
-  if (content.includes('withLingo')) return content;
-
-  let patched = content;
-  const firstImportEnd = findAfterLastImport(patched);
-  patched =
-    patched.slice(0, firstImportEnd) +
-    `import { withLingo } from '@lingo.dev/compiler';\n` +
-    patched.slice(firstImportEnd);
-
-  // Handle both ESM and CJS exports
-  patched = patched.replace(
-    /export\s+default\s+([^;]+);/,
-    (_, expr) => `export default withLingo(${expr.trim()});`,
-  );
-  patched = patched.replace(
-    /module\.exports\s*=\s*([^;]+);/,
-    (_, expr) => `module.exports = withLingo(${expr.trim()});`,
-  );
-  return patched;
-}
-
-/** No-op: custom runtime does not modify next.config. */
+/** No-op: custom runtime does not modify next.config. Kept for API compatibility. */
 export function patchNextConfig(content: string): string {
   return content;
 }
 
 // ---------------------------------------------------------------------------
-// layout.tsx patch — injects LingoProvider from @lingo.dev/compiler/react
-// ---------------------------------------------------------------------------
-
-/**
- * Injects LingoProvider (from @lingo.dev/compiler/react) + LanguageSwitcher into root layout.
- * @lingo.dev/compiler is the ONLY npm dep required — LingoProvider is a subpath export of it.
- */
-export function patchRootLayoutFull(content: string, locales: string[]): string {
-  if (content.includes('LingoProvider')) return content;
-
-  let patched = content;
-  const firstImportEnd = findAfterLastImport(patched);
-  const localeList = ['en', ...locales].map((l) => `'${l}'`).join(', ');
-
-  patched =
-    patched.slice(0, firstImportEnd) +
-    `import { LingoProvider } from '@lingo.dev/compiler/react';\n` +
-    `import { LanguageSwitcher } from './i18n/switcher';\n` +
-    patched.slice(firstImportEnd);
-
-  patched = patched.replace(
-    /\{children\}/g,
-    `<LingoProvider locales={[${localeList}]}>{children}<LanguageSwitcher /></LingoProvider>`,
-  );
-  return patched;
-}
-
-// ---------------------------------------------------------------------------
-// layout.tsx patch — custom runtime (fallback, no external deps)
+// layout.tsx patch — custom runtime (zero external deps)
 // ---------------------------------------------------------------------------
 
 /** Injects custom LanguageProvider + LanguageSwitcher + TextTranslator into root layout. */

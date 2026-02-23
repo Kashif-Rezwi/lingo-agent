@@ -25,7 +25,7 @@ export function useAgentJob({ githubToken }: UseAgentJobOptions): UseAgentJobRes
     const [isLoading, setIsLoading] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
 
-    const { logs, result, error: streamError, isStreaming } = useJobStream(jobId);
+    const { logs, result, error: streamError, isStreaming } = useJobStream(jobId, githubToken);
 
     const submit = useCallback(
         async (repoUrl: string, locales: string[]) => {

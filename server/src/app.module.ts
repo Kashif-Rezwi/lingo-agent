@@ -1,14 +1,29 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { HealthController } from './health.controller';
+import { AppController } from './app.controller.js';
+import { AppService } from './app.service.js';
+import { HealthController } from './health.controller.js';
+import { JobsModule } from './jobs/jobs.module.js';
+import { SandboxModule } from './sandbox/sandbox.module.js';
+import { GithubModule } from './github/github.module.js';
+import { McpModule } from './mcp/mcp.module.js';
+import { VercelModule } from './vercel/vercel.module.js';
+import { AgentModule } from './agent/agent.module.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    // Makes env variables available everywhere without re-importing ConfigModule
+    ConfigModule.forRoot({ isGlobal: true }),
+
+    // Foundation service modules — each independently testable and exported
+    JobsModule,
+    SandboxModule,
+    GithubModule,
+    McpModule,
+    VercelModule,
+
+    // Agent module — orchestrates the 7-tool pipeline via generateText
+    AgentModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],

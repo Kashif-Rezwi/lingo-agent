@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { generateText, tool, ModelMessage } from 'ai';
 import { createGroq } from '@ai-sdk/groq';
-import { Subject, Observable } from 'rxjs';
+import { Subject, ReplaySubject, Observable } from 'rxjs';
 import { z } from 'zod';
 
 import { JobsService } from '../jobs/jobs.service.js';
@@ -29,7 +29,7 @@ export class AgentService {
     private readonly logger = new Logger(AgentService.name);
 
     // One Subject per active job; removed on completion/error
-    private readonly streams = new Map<string, Subject<SseEvent>>();
+    private readonly streams = new Map<string, ReplaySubject<SseEvent>>();
 
     // Track abort controllers to allow manual cancellations
     private readonly abortControllers = new Map<string, AbortController>();
@@ -52,7 +52,7 @@ export class AgentService {
     /** Creates a job record, fires off the pipeline async (non-blocking), and returns the job ID. */
     async startJob(repoUrl: string, locales: string[], githubToken: string): Promise<string> {
         const job = await this.jobs.create(repoUrl, locales);
-        const subject = new Subject<SseEvent>();
+        const subject = new ReplaySubject<SseEvent>();
         this.streams.set(job.id, subject);
 
         const abortController = new AbortController();
@@ -64,6 +64,11 @@ export class AgentService {
         });
 
         return job.id;
+    }
+
+    /** Fetches the current state of a job */
+    async getJob(jobId: string) {
+        return this.jobs.findOneOrThrow(jobId);
     }
 
     /** Returns the SSE observable for a job. The frontend subscribes to this. */
@@ -94,9 +99,11 @@ export class AgentService {
         repoUrl: string,
         locales: string[],
         githubToken: string,
-        subject: Subject<SseEvent>,
+        subject: ReplaySubject<SseEvent>,
     ): Promise<void> {
+        const activeLogs: import('../common/types/agent.types.js').LogEntry[] = [];
         const emit: EmitFn = (entry) => {
+            activeLogs.push(entry);
             subject.next({ type: 'log', data: entry });
         };
 
@@ -301,6 +308,11 @@ export class AgentService {
             subject.next({ type: 'error', data: { message, step: 'unknown' } });
             subject.complete();
         } finally {
+            try {
+                await this.jobs.saveLogs(jobId, activeLogs);
+            } catch (saveErr) {
+                this.logger.error(`[Job ${jobId}] Failed to save logs: ${saveErr}`);
+            }
             this.streams.delete(jobId);
             this.abortControllers.delete(jobId);
         }

@@ -1,11 +1,12 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import { cancelJob } from '@/lib/api-client';
 import { useJobStream } from '@/hooks/use-job-stream';
+import { useJobHistory } from '@/hooks/use-job-history';
 import { LogStream } from '@/components/log-stream';
 import { ResultCard } from '@/components/result-card';
 
@@ -21,8 +22,43 @@ export default function JobPage({ params }: JobPageProps) {
         if (status === 'unauthenticated') router.replace('/login');
     }, [status, router]);
 
-    const { logs, result, error, isStreaming } = useJobStream(params.jobId);
+    const { logs: streamLogs, result, error, isStreaming } = useJobStream(params.jobId, session?.githubToken);
     const [isCancelling, setIsCancelling] = useState(false);
+    const { history, updateJob } = useJobHistory();
+    const [didUpdate, setDidUpdate] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    const historyEntry = history.find((e) => e.jobId === params.jobId);
+    const displayLogs = streamLogs.length > 0 ? streamLogs : (historyEntry?.logs || []);
+
+    useEffect(() => {
+        if (streamLogs.length > 0) {
+            updateJob(params.jobId, { logs: streamLogs });
+        }
+    }, [streamLogs, params.jobId, updateJob]);
+
+    useEffect(() => {
+        if (!menuOpen) return;
+        const handler = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [menuOpen]);
+
+    useEffect(() => {
+        if (didUpdate) return;
+        if (result) {
+            updateJob(params.jobId, { status: 'done', prUrl: result.prUrl, previewUrl: result.previewUrl });
+            setDidUpdate(true);
+        } else if (error && !isStreaming) {
+            updateJob(params.jobId, { status: 'failed' });
+            setDidUpdate(true);
+        }
+    }, [result, error, isStreaming, didUpdate, updateJob, params.jobId]);
 
     const handleCancel = async () => {
         if (!session?.githubToken) return;
@@ -45,13 +81,24 @@ export default function JobPage({ params }: JobPageProps) {
 
     const isLive = isStreaming && !result && !error;
 
+    const handleBack = () => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('from') === 'history') {
+                router.push('/dashboard?t=history');
+                return;
+            }
+        }
+        router.push('/dashboard');
+    };
+
     return (
         <main className="min-h-screen">
             {/* Header */}
             <header className="border-b border-white/5 py-4 px-6 flex items-center justify-between glass sticky top-0 z-20">
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => router.push('/dashboard')}
+                        onClick={handleBack}
                         className="text-slate-500 hover:text-slate-300 transition-colors text-sm flex items-center gap-1.5"
                     >
                         ← Back
@@ -80,8 +127,8 @@ export default function JobPage({ params }: JobPageProps) {
                                 )}
                                 {isCancelling ? 'Stopping...' : 'End Pipeline'}
                             </button>
-                            <span className="flex items-center gap-1.5 text-xs text-indigo-300 bg-indigo-500/10 border border-indigo-500/25 rounded-full px-2.5 py-1">
-                                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-ping" />
+                            <span className="flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 rounded-full px-2.5 py-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                                 Live
                             </span>
                         </div>
@@ -96,29 +143,65 @@ export default function JobPage({ params }: JobPageProps) {
                             ✕ Failed
                         </span>
                     )}
-                    {session?.user?.image && (
-                        <Image
-                            src={session.user.image}
-                            alt={session.user.name ?? 'User'}
-                            width={28}
-                            height={28}
-                            className="rounded-full ring-2 ring-indigo-500/30"
-                        />
-                    )}
+                    {/* Profile menu */}
+                    <div className="relative" ref={menuRef}>
+                        <button
+                            onClick={() => setMenuOpen((o) => !o)}
+                            className="flex items-center gap-2 group"
+                            aria-label="Account menu"
+                        >
+                            {session?.user?.image && (
+                                <Image
+                                    src={session.user.image}
+                                    alt={session.user.name ?? 'User'}
+                                    width={28}
+                                    height={28}
+                                    className="rounded-full ring-2 ring-indigo-400/50"
+                                />
+                            )}
+                            <svg className="w-5 h-5 text-slate-500 group-hover:text-slate-300 transition-colors" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                            </svg>
+                        </button>
+
+                        {menuOpen && (
+                            <div className="absolute right-0 mt-2 w-56 z-20 bg-[#0f1117] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
+                                {session?.user && (
+                                    <div className="px-5 py-4 border-b border-white/5">
+                                        <p className="text-sm font-semibold text-white truncate">{session.user.name}</p>
+                                        <p className="text-xs text-slate-400 truncate mt-0.5">{session.user.email}</p>
+                                    </div>
+                                )}
+                                <div className="p-1.5">
+                                    <button
+                                        onClick={() => signOut({ callbackUrl: '/login' })}
+                                        className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-colors"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                                            <polyline points="16 17 21 12 16 7" />
+                                            <line x1="21" y1="12" x2="9" y2="12" />
+                                        </svg>
+                                        Sign out
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </header>
 
-            <div className="max-w-2xl mx-auto px-6 py-10 space-y-8 animate-fade-up">
+            <div className="max-w-4xl mx-auto px-6 py-10 space-y-8 animate-fade-up">
                 {/* Heading */}
                 <div className="space-y-1">
                     <h1 className="text-2xl font-bold tracking-tight text-white">
-                        {result ? 'Pipeline complete 🎉' : error && !isStreaming ? 'Pipeline failed' : 'Running pipeline…'}
+                        {result ? 'Pipeline complete 🎉' : error && !isStreaming ? 'Pipeline failed' : 'Translating repository…'}
                     </h1>
                     <p className="text-slate-600 text-xs font-mono">{params.jobId}</p>
                 </div>
 
                 {/* Connecting spinner */}
-                {logs.length === 0 && isStreaming && (
+                {displayLogs.length === 0 && isStreaming && (
                     <div className="flex items-center gap-3 text-slate-400 text-sm animate-fade-in">
                         <span className="animate-spin-slow rounded-full h-4 w-4 border-2 border-indigo-500/30 border-t-indigo-400 flex-shrink-0" />
                         Connecting to pipeline…
@@ -126,13 +209,13 @@ export default function JobPage({ params }: JobPageProps) {
                 )}
 
                 {/* Log stream */}
-                {(logs.length > 0 || isStreaming) && (
+                {(displayLogs.length > 0 || isStreaming) && (
                     <div className="animate-fade-in">
                         <LogStream
-                            logs={logs}
+                            logs={displayLogs}
                             isStreaming={isStreaming}
-                            isComplete={!!result}
-                            hasError={!!error && !isStreaming}
+                            isComplete={!!result || historyEntry?.status === 'done'}
+                            hasError={(!!error && !isStreaming) || historyEntry?.status === 'failed'}
                         />
                     </div>
                 )}

@@ -45,4 +45,11 @@ export class AgentController {
         this.agent.cancelJob(jobId);
         return { message: 'Job cancelled' };
     }
+
+    /** Get job state */
+    @UseGuards(AuthGuard)
+    @Get('job/:jobId')
+    async getJob(@Param('jobId') jobId: string) {
+        return this.agent.getJob(jobId);
+    }
 }

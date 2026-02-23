@@ -46,3 +46,18 @@ export async function cancelJob(jobId: string, githubToken: string): Promise<voi
         throw new Error(`Cancel request failed: ${res.status}`);
     }
 }
+
+/** Fetches a job by ID */
+export async function getJob(jobId: string, githubToken: string) {
+    const res = await fetch(`${API_URL}/agent/job/${jobId}`, {
+        headers: {
+            Authorization: `Bearer ${githubToken}`,
+        },
+    });
+
+    if (!res.ok) {
+        throw new Error(`Failed to fetch job: ${res.status}`);
+    }
+
+    return res.json();
+}

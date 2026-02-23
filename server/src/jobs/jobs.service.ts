@@ -36,4 +36,11 @@ export class JobsService {
       data: { status: 'failed', error },
     });
   }
+
+  saveLogs(id: string, logs: any[]): Promise<Job> {
+    return this.prisma.job.update({
+      where: { id },
+      data: { logs } as any,
+    });
+  }
 }

@@ -40,7 +40,7 @@ export function LogStream({ logs, isStreaming, isComplete, hasError }: LogStream
                     <span className="ml-3 text-xs text-slate-600 font-mono">agent output</span>
                     {isStreaming && (
                         <span className="ml-auto flex items-center gap-1.5 text-[10px] text-indigo-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-ping" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
                             streaming
                         </span>
                     )}

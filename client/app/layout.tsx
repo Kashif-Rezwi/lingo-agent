@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <body className="font-sans antialiased" style={{ backgroundColor: 'var(--bg-base)' }}>
+      <body className="font-sans antialiased scrollbar-hide" style={{ backgroundColor: 'var(--bg-base)' }}>
         {/* Subtle global radial noise to break flatness */}
         <div
           aria-hidden

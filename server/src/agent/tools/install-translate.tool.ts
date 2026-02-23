@@ -142,6 +142,7 @@ walk(repoRoot, ['.tsx', '.jsx'], IGNORES, files);
 
 const strings = new Set();
 const STRING_ATTRS = ['placeholder', 'title', 'alt', 'aria-label', 'label', 'aria-placeholder', 'aria-description', 'content'];
+const SKIP_ATTRS = ['className', 'class', 'style', 'href', 'src', 'id', 'key', 'htmlFor', 'type', 'name', 'value', 'action', 'method', 'role', 'rel', 'target', 'ref', 'as', 'sizes', 'media', 'crossOrigin', 'loading', 'decoding', 'fetchPriority', 'viewBox', 'fill', 'stroke', 'd', 'xmlns'];
 
 for (const file of files) {
   let code;
@@ -158,22 +159,25 @@ for (const file of files) {
   try {
     traverse(ast, {
       JSXText(path) {
-        const text = path.node.value.replace(/\\s+/g, ' ').trim();
+        const text = path.node.value.replace(/\\\\s+/g, ' ').trim();
         if (isTranslatable(text, { isJSX: true })) strings.add(text);
       },
       StringLiteral(nodePath) {
         const val = nodePath.node.value.trim();
         const parent = nodePath.parent;
+        // Skip non-translatable JSX attributes (className, style, href, src, etc.)
+        if (parent.type === 'JSXAttribute') {
+          const name = parent.name?.name;
+          if (typeof name === 'string') {
+            if (SKIP_ATTRS.includes(name) || name.startsWith('data-') || name.startsWith('on')) return;
+          }
+        }
         const isJSX = parent.type === 'JSXAttribute' || parent.type === 'JSXExpressionContainer';
         if (!isTranslatable(val, { isJSX })) return;
-        // String attributes like placeholder="Enter your email"
+        // Translatable string attributes like placeholder="Enter your email"
         if (parent.type === 'JSXAttribute') {
           const name = parent.name?.name;
           if (typeof name === 'string' && STRING_ATTRS.includes(name)) {
-            strings.add(val);
-          }
-          // Also capture any JSX attribute with user-facing text
-          if (typeof name === 'string' && !STRING_ATTRS.includes(name) && val.length > 5 && val.includes(' ')) {
             strings.add(val);
           }
         }

@@ -23,6 +23,7 @@ model Job {
   prUrl      String?
   previewUrl String?
   error      String?
+  logs       Json      @default("[]")
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }

@@ -2,6 +2,11 @@
 
 > **AI-powered i18n automation** — clone a GitHub repository, extract every hardcoded string, translate it with Lingo.dev, and open a ready-to-merge Pull Request with a live Vercel preview. All in one click.
 
+<<<<<<< HEAD
+=======
+**🌍 Live:** [lingo-agent.vercel.app](https://lingo-agent.vercel.app) &nbsp;|&nbsp; **⚙️ API:** [lingo-agent.onrender.com](https://lingo-agent.onrender.com)
+
+>>>>>>> main
 ---
 
 ## Table of Contents
@@ -95,7 +100,11 @@ The system consists of three primary layers: a **Next.js frontend** for user int
                         │ REST + SSE (HTTP/1.1)
                         ▼
 ┌─────────────────────────────────────────────────────────┐
+<<<<<<< HEAD
 │          NestJS API Server (Server - :3001)             │
+=======
+│     NestJS API Server — Render (:3001)                  │
+>>>>>>> main
 │                                                         │
 │  AuthGuard (Bearer token = GitHub OAuth token)          │
 │  AgentController  →  AgentService                       │
@@ -128,7 +137,11 @@ The system consists of three primary layers: a **Next.js frontend** for user int
 | Sequential tool forcing | Prevents the LLM from skipping steps or calling tools out of order |
 | RxJS `ReplaySubject` per job | Late-joining SSE connections replay all past events from job start |
 
+<<<<<<< HEAD
 **Job lifecycle:** Each job transitions through five states: `pending` → `running` → `completed` / `failed` / `cancelled`. The frontend opens an SSE connection via `/agent/stream/:jobId` and receives real-time `log`, `progress`, `complete`, or `error` events until the job terminates.
+=======
+**Job lifecycle:** Each job transitions through five states: `pending` → `running` → `completed` / `failed` / `cancelled`. The frontend opens an SSE connection via `/api/agent/stream/:jobId` and receives real-time `log`, `progress`, `complete`, or `error` events until the job terminates.
+>>>>>>> main
 
 ---
 
@@ -171,7 +184,11 @@ The same token that authenticates the user with GitHub is forwarded to the NestJ
 Each job runs a **strictly sequential 7-step pipeline**. The Groq LLM is only ever shown one tool schema at a time (`toolChoice: 'required'`), forcing it to call that exact tool and return the arguments. The server then executes the tool manually (preventing SDK timeout issues) and feeds the result back to the LLM's conversation history before the next step.
 
 ```
+<<<<<<< HEAD
 POST /agent/run
+=======
+POST /api/agent/run
+>>>>>>> main
       │
       ▼
   1. clone_repo
@@ -351,14 +368,22 @@ These are deliberate scope constraints and known edge cases, not bugs:
 
 ### 🎬 Video Walkthrough
 
+<<<<<<< HEAD
 <!-- TODO: Replace with actual video link -->
 [![Watch the demo](https://img.shields.io/badge/▶_Watch_Demo-Video-red?style=for-the-badge&logo=youtube)](https://your-video-link-here.com)
+=======
+[![Watch the demo](https://img.shields.io/badge/▶_Watch_Demo-Google_Drive-blue?style=for-the-badge&logo=googledrive)](https://drive.google.com/drive/folders/1GW-W05pXK-dTD6qWeqy38LuvGFD2R1sI?usp=sharing)
+>>>>>>> main
 
 > A full end-to-end walkthrough showing LingoAgent translating a Next.js landing page into Japanese, French, and Arabic in under 3 minutes.
 
 ### 📸 Screenshots
 
+<<<<<<< HEAD
 <!-- TODO: Replace with actual screenshots -->
+=======
+<!-- TODO: Replace placeholder images with actual screenshots -->
+>>>>>>> main
 
 | Dashboard | Live Agent Logs | Result — PR & Preview |
 |---|---|---|

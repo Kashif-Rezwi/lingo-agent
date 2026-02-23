@@ -106,10 +106,10 @@ function isTranslatable(s, ctx) {
   if (!s || s.length < 2 || s.length > 500) return false;
   if (!/[a-zA-Z]/.test(s)) return false;
   if (/^[{}=<>\\\\/]/.test(s)) return false;
-  if (/^(import|export|const|let|var|function|return|class|type|interface|from|if|else|switch|case)\b/.test(s)) return false;
+  if (/^(import|export|const|let|var|function|return|class|type|interface|from|if|else|switch|case)\\b/.test(s)) return false;
   if (/[{}();=]/.test(s)) return false;
   if (s.startsWith('//') || s.startsWith('/*') || s.startsWith('#')) return false;
-  if (/^https?:\/\//.test(s)) return false;
+  if (/^https?:\\/\\//.test(s)) return false;
   // Single-word identifier filter — context-aware
   const isJSX = ctx && ctx.isJSX;
   if (/^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(s)) {
@@ -142,7 +142,6 @@ walk(repoRoot, ['.tsx', '.jsx'], IGNORES, files);
 
 const strings = new Set();
 const STRING_ATTRS = ['placeholder', 'title', 'alt', 'aria-label', 'label', 'aria-placeholder', 'aria-description', 'content'];
-const SKIP_ATTRS = ['className', 'class', 'style', 'href', 'src', 'id', 'key', 'htmlFor', 'type', 'name', 'value', 'action', 'method', 'role', 'rel', 'target', 'ref', 'as', 'sizes', 'media', 'crossOrigin', 'loading', 'decoding', 'fetchPriority', 'viewBox', 'fill', 'stroke', 'd', 'xmlns'];
 
 for (const file of files) {
   let code;
@@ -159,25 +158,22 @@ for (const file of files) {
   try {
     traverse(ast, {
       JSXText(path) {
-        const text = path.node.value.replace(/\s+/g, ' ').trim();
+        const text = path.node.value.replace(/\\s+/g, ' ').trim();
         if (isTranslatable(text, { isJSX: true })) strings.add(text);
       },
       StringLiteral(nodePath) {
         const val = nodePath.node.value.trim();
         const parent = nodePath.parent;
-        // Skip non-translatable JSX attributes (className, style, href, src, etc.)
-        if (parent.type === 'JSXAttribute') {
-          const name = parent.name?.name;
-          if (typeof name === 'string') {
-            if (SKIP_ATTRS.includes(name) || name.startsWith('data-') || name.startsWith('on')) return;
-          }
-        }
         const isJSX = parent.type === 'JSXAttribute' || parent.type === 'JSXExpressionContainer';
         if (!isTranslatable(val, { isJSX })) return;
-        // Translatable string attributes like placeholder="Enter your email"
+        // String attributes like placeholder="Enter your email"
         if (parent.type === 'JSXAttribute') {
           const name = parent.name?.name;
           if (typeof name === 'string' && STRING_ATTRS.includes(name)) {
+            strings.add(val);
+          }
+          // Also capture any JSX attribute with user-facing text
+          if (typeof name === 'string' && !STRING_ATTRS.includes(name) && val.length > 5 && val.includes(' ')) {
             strings.add(val);
           }
         }

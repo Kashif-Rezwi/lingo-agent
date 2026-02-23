@@ -18,7 +18,7 @@ export class AgentController {
     @UseGuards(AuthGuard)
     @Post('run')
     async run(@Body() dto: StartJobDto): Promise<JobResponseDto> {
-        const jobId = await this.agent.startJob(dto.repoUrl, dto.locales, dto.githubToken);
+        const jobId = await this.agent.startJob(dto.repoUrl, dto.locales, dto.githubToken, dto.lingoApiKey, dto.groqApiKey);
         this.logger.log(`Job started: ${jobId}`);
         return { jobId };
     }
@@ -41,8 +41,8 @@ export class AgentController {
     /** Manually aborts a running job */
     @UseGuards(AuthGuard)
     @Post('cancel/:jobId')
-    cancel(@Param('jobId') jobId: string) {
-        this.agent.cancelJob(jobId);
+    async cancel(@Param('jobId') jobId: string) {
+        await this.agent.cancelJob(jobId);
         return { message: 'Job cancelled' };
     }
 

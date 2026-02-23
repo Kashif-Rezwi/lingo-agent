@@ -32,8 +32,8 @@ export const SUPPORTED_LOCALES: { code: string; label: string }[] = [
     { code: 'uk', label: 'Ukrainian' },
 ];
 
-/** Demo target locales — French, Arabic, Japanese. Always used for the live demo. */
-export const DEMO_LOCALES = ['fr', 'ar', 'ja'];
+/** Demo target locales — changed to default to a single language. */
+export const DEMO_LOCALES = ['ja'];
 
 /** Ordered list of pipeline steps for the progress stepper. */
 export const PIPELINE_STEPS = [

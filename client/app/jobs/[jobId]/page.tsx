@@ -14,6 +14,54 @@ interface JobPageProps {
     params: { jobId: string };
 }
 
+/** Pure canvas confetti burst — fires 120 particles and cleans up after 3s. No npm deps needed. */
+function fireConfetti() {
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:99999;';
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d')!;
+    const COLORS = ['#4f46e5', '#7c3aed', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#84cc16'];
+    const particles = Array.from({ length: 120 }, () => ({
+        x: canvas.width / 2 + (Math.random() - 0.5) * 200,
+        y: canvas.height / 2 - 100,
+        vx: (Math.random() - 0.5) * 14,
+        vy: (Math.random() - 1) * 14,
+        rot: Math.random() * Math.PI * 2,
+        rotV: (Math.random() - 0.5) * 0.3,
+        w: 8 + Math.random() * 6,
+        h: 4 + Math.random() * 4,
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        alpha: 1,
+    }));
+    let frame: number;
+    const GRAVITY = 0.35;
+    const start = performance.now();
+    function draw(ts: number) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const elapsed = ts - start;
+        const fade = Math.max(0, 1 - elapsed / 2500);
+        for (const p of particles) {
+            p.vy += GRAVITY;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.rot += p.rotV;
+            p.alpha = fade;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            ctx.globalAlpha = p.alpha;
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+        }
+        if (elapsed < 3000) frame = requestAnimationFrame(draw);
+        else { canvas.remove(); cancelAnimationFrame(frame); }
+    }
+    frame = requestAnimationFrame(draw);
+}
+
 export default function JobPage({ params }: JobPageProps) {
     const { data: session, status } = useSession();
     const router = useRouter();
@@ -28,6 +76,7 @@ export default function JobPage({ params }: JobPageProps) {
     const [didUpdate, setDidUpdate] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const confettiFired = useRef(false);
 
     const historyEntry = history.find((e) => e.jobId === params.jobId);
     const displayLogs = streamLogs.length > 0 ? streamLogs : (historyEntry?.logs || []);
@@ -54,6 +103,11 @@ export default function JobPage({ params }: JobPageProps) {
         if (result) {
             updateJob(params.jobId, { status: 'done', prUrl: result.prUrl, previewUrl: result.previewUrl });
             setDidUpdate(true);
+            // Fire confetti once on successful completion
+            if (!confettiFired.current) {
+                confettiFired.current = true;
+                fireConfetti();
+            }
         } else if (error && !isStreaming) {
             updateJob(params.jobId, { status: 'failed' });
             setDidUpdate(true);

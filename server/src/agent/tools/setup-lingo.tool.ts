@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { SandboxService } from '../../sandbox/sandbox.service.js';
 import { McpService } from '../../mcp/mcp.service.js';
 import {
-  patchNextConfig,
   patchRootLayout,
   generateI18nConfig,
   generateI18nProvider,
@@ -56,12 +55,7 @@ export function createSetupLingoTool(sandbox: SandboxService, mcp: McpService, e
       modifiedFiles.push(`${workDir}/i18n.json`);
       emit({ level: 'info', message: 'Written i18n.json', timestamp: new Date(), step: 'setup_lingo' });
 
-      // 2. No-op: custom runtime doesn't touch next.config
-      const nextConfigContent = await sandbox.readFile(sandboxId, nextConfigPath);
-      await sandbox.writeFile(sandboxId, nextConfigPath, patchNextConfig(nextConfigContent));
-      modifiedFiles.push(nextConfigPath);
-
-      // 3. Write runtime files — i18n/ sibling to layout.tsx so relative imports resolve
+      // 2. Write runtime files — i18n/ sibling to layout.tsx so relative imports resolve
       const layoutDir = layoutPath.substring(0, layoutPath.lastIndexOf('/'));
       await sandbox.exec(sandboxId, `mkdir -p ${layoutDir}/i18n`);
 

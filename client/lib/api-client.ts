@@ -4,6 +4,8 @@ interface StartJobOptions {
     repoUrl: string;
     locales: string[];
     githubToken: string;
+    lingoApiKey?: string;
+    groqApiKey?: string;
 }
 
 interface StartJobResponse {
@@ -22,6 +24,8 @@ export async function startJob(opts: StartJobOptions): Promise<StartJobResponse>
             repoUrl: opts.repoUrl,
             locales: opts.locales,
             githubToken: opts.githubToken,
+            lingoApiKey: opts.lingoApiKey,
+            groqApiKey: opts.groqApiKey,
         }),
     });
 

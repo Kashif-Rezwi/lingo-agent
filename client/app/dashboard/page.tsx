@@ -8,8 +8,9 @@ import { startJob } from '@/lib/api-client';
 import { RepoInputForm } from '@/components/repo-input-form';
 import { JobHistoryTab } from '@/components/job-history-tab';
 import { useJobHistory } from '@/hooks/use-job-history';
+import { useSettings } from '@/hooks/use-settings';
 
-type Tab = 'new' | 'history';
+type Tab = 'new' | 'history' | 'settings';
 
 export default function DashboardPage() {
     const { data: session, status } = useSession();
@@ -20,12 +21,31 @@ export default function DashboardPage() {
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const { history, addJob, clearHistory } = useJobHistory();
+    const { settings, updateSettings, isLoaded } = useSettings();
+
+    // Local state for Settings form
+    const [tempLingoKey, setTempLingoKey] = useState('');
+    const [tempGroqKey, setTempGroqKey] = useState('');
+    const [showLingoKey, setShowLingoKey] = useState(false);
+    const [showGroqKey, setShowGroqKey] = useState(false);
+    const [savedNotice, setSavedNotice] = useState(false);
+
+    // Sync settings to local state once loaded
+    useEffect(() => {
+        if (isLoaded) {
+            setTempLingoKey((prev) => prev || settings.lingoApiKey);
+            setTempGroqKey((prev) => prev || settings.groqApiKey);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoaded]);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
             if (params.get('t') === 'history') {
                 setTab('history');
+            } else if (params.get('t') === 'settings') {
+                setTab('settings');
             }
         }
     }, []);
@@ -52,7 +72,13 @@ export default function DashboardPage() {
             setError(null);
             setIsLoading(true);
             try {
-                const { jobId } = await startJob({ repoUrl, locales, githubToken });
+                const { jobId } = await startJob({
+                    repoUrl,
+                    locales,
+                    githubToken,
+                    lingoApiKey: settings.lingoApiKey.trim() || undefined,
+                    groqApiKey: settings.groqApiKey.trim() || undefined,
+                });
                 addJob({ jobId, repoUrl, locales, startedAt: new Date().toISOString(), status: 'running' });
                 router.push(`/jobs/${jobId}`);
             } catch (err) {
@@ -61,8 +87,15 @@ export default function DashboardPage() {
                 setIsLoading(false);
             }
         },
-        [githubToken, router, addJob],
+        [githubToken, router, addJob, settings],
     );
+
+    const handleSaveSettings = (e: React.FormEvent) => {
+        e.preventDefault();
+        updateSettings({ lingoApiKey: tempLingoKey, groqApiKey: tempGroqKey });
+        setSavedNotice(true);
+        setTimeout(() => setSavedNotice(false), 3000);
+    };
 
     if (status === 'loading') {
         return (
@@ -71,8 +104,6 @@ export default function DashboardPage() {
             </main>
         );
     }
-
-    const doneCount = history.filter((j) => j.status === 'done').length;
 
     return (
         <main className="min-h-screen">
@@ -170,6 +201,13 @@ export default function DashboardPage() {
                             </span>
                         )}
                     </TabButton>
+                    <TabButton active={tab === 'settings'} onClick={() => setTab('settings')}>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Settings
+                    </TabButton>
                 </div>
 
                 {/* Tab: New Job */}
@@ -198,6 +236,118 @@ export default function DashboardPage() {
                 {tab === 'history' && (
                     <JobHistoryTab history={history} onClear={clearHistory} />
                 )}
+
+                {/* Tab: Settings */}
+                {tab === 'settings' && (
+                    <div className="space-y-6">
+                        <div className="glass rounded-2xl p-6 border border-white/5 space-y-6">
+                            <div className="space-y-2">
+                                <h2 className="text-white font-semibold">Custom API Keys</h2>
+                                <p className="text-slate-400 text-xs leading-relaxed">
+                                    Override the default system quotas securely. Keys are stored locally in your browser and sent solely to the agent pipeline for processing your translation requests.
+                                </p>
+                            </div>
+
+                            <form onSubmit={handleSaveSettings} className="space-y-5">
+                                <div className="space-y-2">
+                                    <label htmlFor="lingo-key" className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                                        Lingo.dev API Key
+                                    </label>
+                                    <div className="relative group/input">
+                                        <input
+                                            id="lingo-key"
+                                            type={showLingoKey ? 'text' : 'password'}
+                                            value={tempLingoKey}
+                                            onChange={(e) => setTempLingoKey(e.target.value)}
+                                            placeholder="lin_..."
+                                            className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:border-indigo-500/60 transition-all font-mono pr-12"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowLingoKey(!showLingoKey)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-slate-300 transition-colors"
+                                            title={showLingoKey ? 'Hide key' : 'Show key'}
+                                        >
+                                            {showLingoKey ? (
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                                                </svg>
+                                            ) : (
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    </div>
+                                    <p className="text-slate-500 text-[11px]">
+                                        Optional. Required for generating translations.{' '}
+                                        <a href="https://lingo.dev/en/app" target="_blank" rel="noreferrer" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
+                                            Get your key here
+                                        </a>
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label htmlFor="groq-key" className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                                        Groq API Key
+                                    </label>
+                                    <div className="relative group/input">
+                                        <input
+                                            id="groq-key"
+                                            type={showGroqKey ? 'text' : 'password'}
+                                            value={tempGroqKey}
+                                            onChange={(e) => setTempGroqKey(e.target.value)}
+                                            placeholder="gsk_..."
+                                            className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:border-indigo-500/60 transition-all font-mono pr-12"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowGroqKey(!showGroqKey)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-slate-300 transition-colors"
+                                            title={showGroqKey ? 'Hide key' : 'Show key'}
+                                        >
+                                            {showGroqKey ? (
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                                                </svg>
+                                            ) : (
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    </div>
+                                    <p className="text-slate-500 text-[11px]">
+                                        Optional. Powers the Llama 3.3 pipeline.{' '}
+                                        <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
+                                            Get your key here
+                                        </a>
+                                    </p>
+                                </div>
+
+                                <div className="pt-2 flex items-center justify-between">
+                                    <button
+                                        type="submit"
+                                        disabled={tempLingoKey.trim() === settings.lingoApiKey && tempGroqKey.trim() === settings.groqApiKey}
+                                        className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium text-sm transition-all shadow-sm border border-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        Save Changes
+                                    </button>
+                                    {savedNotice && (
+                                        <span className="text-emerald-400 text-sm font-medium animate-fade-in flex items-center gap-1.5">
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            Saved locally
+                                        </span>
+                                    )}
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </div>
         </main>
     );
@@ -224,3 +374,4 @@ function TabButton({
         </button>
     );
 }
+

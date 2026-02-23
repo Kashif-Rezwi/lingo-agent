@@ -12,11 +12,11 @@ Execute exactly 7 tools in strict sequential order, passing the correct data bet
 
 3. **analyze_repo** — Analyze the repository using \`sandboxId\`, \`workDir\`, and \`layoutPath\` from prior steps. STOP immediately if a conflicting i18n library is found. Returns: \`nextConfigPath\`, \`hasExistingI18n\`, \`jsxFileCount\`.
 
-4. **setup_lingo** — Configure Lingo.dev using \`sandboxId\`, \`workDir\`, \`framework\`, \`locales\` (from job params), \`layoutPath\`, and \`nextConfigPath\`. Returns: \`modifiedFiles\`.
+4. **setup_lingo** — Write a zero-dependency i18n runtime (LanguageProvider + TextTranslator + LanguageSwitcher) into the repo and inject it into the root layout. Use \`sandboxId\`, \`workDir\`, \`framework\`, \`locales\` (from job params), \`layoutPath\`, and \`nextConfigPath\`. Returns: \`modifiedFiles\`.
 
-5. **install_and_translate** — Run npm install and the Lingo.dev CLI using \`sandboxId\` and \`workDir\`. Returns: \`generatedLocales\`.
+5. **install_and_translate** — Run \`npm install\`, extract all hardcoded JSX strings via Babel AST analysis, translate them with the Lingo.dev SDK, and write \`public/locales/*.json\` files for each target language. Use \`sandboxId\` and \`workDir\`. Returns: \`generatedLocales\`, \`wordCounts\` (a map of locale → word count).
 
-6. **commit_and_push** — Read all modified files from the sandbox, commit to GitHub, open a PR. Use \`sandboxId\`, \`workDir\`, \`repoUrl\`, \`githubToken\`, \`locales\`, \`nextConfigPath\`, \`layoutPath\`. Returns: \`branchName\`, \`prUrl\`.
+6. **commit_and_push** — Read all modified files from the sandbox, commit to GitHub, open a PR. Use \`sandboxId\`, \`workDir\`, \`repoUrl\`, \`githubToken\`, \`locales\`, \`nextConfigPath\`, \`layoutPath\`, and \`wordCounts\` (forward the word count map from step 5 so it appears in the PR description). Returns: \`branchName\`, \`prUrl\`.
 
 7. **trigger_preview** — Trigger a Vercel preview deployment using \`repoUrl\` and \`branchName\`. Returns: \`previewUrl\`.
 

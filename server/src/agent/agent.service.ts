@@ -53,7 +53,7 @@ export class AgentService {
     }
 
     /** Creates a job record, fires off the pipeline async (non-blocking), and returns the job ID. */
-    async startJob(repoUrl: string, locales: string[], githubToken: string): Promise<string> {
+    async startJob(repoUrl: string, locales: string[], githubToken: string, customLingoKey?: string, customGroqKey?: string): Promise<string> {
         const job = await this.jobs.create(repoUrl, locales);
         const subject = new ReplaySubject<SseEvent>();
         this.streams.set(job.id, subject);
@@ -62,7 +62,7 @@ export class AgentService {
         this.abortControllers.set(job.id, abortController);
 
         // Fire and forget — SSE events flow through the subject
-        this.runPipeline(job.id, repoUrl, locales, githubToken, subject).catch((err) => {
+        this.runPipeline(job.id, repoUrl, locales, githubToken, subject, customLingoKey, customGroqKey).catch((err) => {
             this.logger.error(`Pipeline error for job ${job.id}: ${String(err)}`);
         });
 
@@ -113,6 +113,8 @@ export class AgentService {
         locales: string[],
         githubToken: string,
         subject: ReplaySubject<SseEvent>,
+        customLingoKey?: string,
+        customGroqKey?: string,
     ): Promise<void> {
         const activeLogs: import('../common/types/agent.types.js').LogEntry[] = [];
         const emit: EmitFn = (entry) => {
@@ -123,8 +125,12 @@ export class AgentService {
         try {
             await this.jobs.updateStatus(jobId, 'running');
 
+            // Resolve actual keys (custom taking precedence over system defaults)
+            const resolvedGroqKey = customGroqKey || this.groqApiKey;
+            const resolvedLingoKey = customLingoKey || this.lingoApiKey;
+
             const modelName = this.config.get<string>('DEFAULT_AI_MODEL') || 'llama-3.3-70b-versatile';
-            const groq = createGroq({ apiKey: this.groqApiKey });
+            const groq = createGroq({ apiKey: resolvedGroqKey });
 
             // ---------------------------------------------------------------------------
             // Build schema-only tools (no execute fn) for LLM argument extraction.
@@ -137,7 +143,7 @@ export class AgentService {
                 detect_framework: createDetectFrameworkTool(this.sandbox, emit),
                 analyze_repo: createAnalyzeRepoTool(this.sandbox, emit),
                 setup_lingo: createSetupLingoTool(this.sandbox, this.mcp, emit),
-                install_and_translate: createInstallTranslateTool(this.sandbox, this.lingoApiKey, emit),
+                install_and_translate: createInstallTranslateTool(this.sandbox, resolvedLingoKey, emit),
                 commit_and_push: createCommitPushTool(this.sandbox, this.github, emit),
                 trigger_preview: createTriggerPreviewTool(this.vercel, emit),
             };
@@ -227,6 +233,31 @@ export class AgentService {
                         continue;
                     }
                     // Hard API errors (rate limit, auth, network) — fail fast
+                    const isRateLimit = /rate.limit|too many requests|429|quota|exceeded/i.test(errMsg);
+                    const isAuthErr = /unauthorized|invalid.*key|forbidden|401|api.key|authentication/i.test(errMsg);
+
+                    if (isRateLimit || isAuthErr) {
+                        emit({
+                            level: 'error',
+                            message: isRateLimit
+                                ? `⚠️ Groq API rate limit exceeded: ${errMsg}`
+                                : `⚠️ Groq API key is invalid or expired: ${errMsg}`,
+                            timestamp: new Date(),
+                            step: currentExpectedTool,
+                        });
+                        emit({
+                            level: 'error',
+                            message: '💡 Go to Dashboard → Settings tab to add your own Groq API key. Get one free at https://console.groq.com/keys',
+                            timestamp: new Date(),
+                            step: currentExpectedTool,
+                        });
+                        throw new Error(
+                            isRateLimit
+                                ? 'Groq rate limit exceeded. Please add your own Groq API key in Dashboard → Settings, or wait a few minutes and try again.'
+                                : 'Invalid Groq API key. Please check or update it in Dashboard → Settings.',
+                        );
+                    }
+
                     this.logger.error(`[Job ${jobId}] LLM API error: ${errMsg}`);
                     throw new Error(`LLM error at step '${currentExpectedTool}': ${errMsg}`);
                 }

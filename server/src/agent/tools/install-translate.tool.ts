@@ -365,7 +365,35 @@ console.log('EXTRACTED_JSON:' + JSON.stringify([...strings]));
             step: 'install_and_translate',
           });
         } catch (err: any) {
-          emit({ level: 'error', message: `Failed to translate ${locale}: ${err.message}`, timestamp: new Date(), step: 'install_and_translate' });
+          const errMsg = err?.message || String(err);
+          const isQuotaError = /quota|limit|free plan|maximum.*words|upgrade|exceeded|insufficient/i.test(errMsg);
+          const isAuthError = /unauthorized|invalid.*key|forbidden|api.key|authentication/i.test(errMsg);
+
+          if (isQuotaError || isAuthError) {
+            emit({
+              level: 'error',
+              message: isQuotaError
+                ? `⚠️ Lingo.dev translation quota exceeded: ${errMsg}`
+                : `⚠️ Lingo.dev API key is invalid or expired: ${errMsg}`,
+              timestamp: new Date(),
+              step: 'install_and_translate',
+            });
+            emit({
+              level: 'error',
+              message: '💡 Go to Dashboard → Settings tab to add your own Lingo.dev API key, or upgrade your plan at https://lingo.dev/en/app',
+              timestamp: new Date(),
+              step: 'install_and_translate',
+            });
+            // Clean up extraction script before aborting
+            await sandbox.exec(sandboxId, `rm -f ${workDir}/__extract.mjs`);
+            throw new Error(
+              isQuotaError
+                ? 'Translation quota exceeded. Please add your own Lingo.dev API key in Dashboard → Settings, or upgrade your plan.'
+                : 'Invalid Lingo.dev API key. Please check or update it in Dashboard → Settings.',
+            );
+          }
+
+          emit({ level: 'error', message: `Failed to translate ${locale}: ${errMsg}`, timestamp: new Date(), step: 'install_and_translate' });
         }
 
         // Reset sandbox clock after each locale — prevents timeout during multi-locale translation

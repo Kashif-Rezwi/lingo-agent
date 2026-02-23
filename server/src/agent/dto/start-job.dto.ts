@@ -1,4 +1,4 @@
-import { IsString, IsArray, ArrayMinSize, IsUrl, IsNotEmpty } from 'class-validator';
+import { IsString, IsArray, ArrayMinSize, IsUrl, IsNotEmpty, IsOptional } from 'class-validator';
 
 /** Request body for POST /agent/run — starts a new agent pipeline job. */
 export class StartJobDto {
@@ -13,4 +13,12 @@ export class StartJobDto {
     @IsString()
     @IsNotEmpty()
     githubToken: string;
+
+    @IsOptional()
+    @IsString()
+    lingoApiKey?: string;
+
+    @IsOptional()
+    @IsString()
+    groqApiKey?: string;
 }

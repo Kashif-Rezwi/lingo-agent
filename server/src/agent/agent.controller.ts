@@ -18,7 +18,7 @@ export class AgentController {
     @UseGuards(AuthGuard)
     @Post('run')
     async run(@Body() dto: StartJobDto): Promise<JobResponseDto> {
-        const jobId = await this.agent.startJob(dto.repoUrl, dto.locales, dto.githubToken);
+        const jobId = await this.agent.startJob(dto.repoUrl, dto.locales, dto.githubToken, dto.lingoApiKey, dto.groqApiKey);
         this.logger.log(`Job started: ${jobId}`);
         return { jobId };
     }

@@ -1,382 +1,582 @@
-# LingoAgent 🌐
+# LingoAgent
 
-> **AI-powered i18n automation** — clone a GitHub repository, extract every hardcoded string, translate it with Lingo.dev, and open a ready-to-merge Pull Request with a live Vercel preview. All in one click.
+> Autonomous AI agent pipeline that clones Next.js repositories, extracts hardcoded JSX strings via Babel AST, translates them with Lingo.dev, and opens a pull request with a live Vercel preview.
 
-**🌍 Live:** [lingo-agent.vercel.app](https://lingo-agent.vercel.app) &nbsp;|&nbsp; **⚙️ API:** [lingo-agent.onrender.com](https://lingo-agent.onrender.com)
+**🌍 Live Application:** [lingo-agent.vercel.app](https://lingo-agent.vercel.app) &nbsp;|&nbsp; **⚙️ API Docs (Swagger):** [lingo-agent.onrender.com/docs](https://lingo-agent.onrender.com/docs) &nbsp;|&nbsp; **🩺 API Health:** [lingo-agent.onrender.com/api/health](https://lingo-agent.onrender.com/api/health)
 
 ---
 
 ## Table of Contents
 
-- [About](#about)
-- [Approach](#approach)
-- [Architecture — High-Level Design](#architecture--high-level-design)
-- [Auth Flow](#auth-flow)
+- [Overview](#overview)
+- [The Orchestration Gap](#the-orchestration-gap)
+- [Architecture](#architecture)
+  - [System Architecture](#system-architecture)
+  - [Data & Event Flow](#data--event-flow)
+- [Authentication Flow](#authentication-flow)
 - [AI Agent Pipeline](#ai-agent-pipeline)
+  - [The 7-Step Tool Sequence](#the-7-step-tool-sequence)
+  - [Runtime Translation Strategy](#runtime-translation-strategy)
+  - [Resilience and Error Handling](#resilience-and-error-handling)
 - [Tech Stack](#tech-stack)
-- [Setup & Local Dev](#setup--local-dev)
+- [Project Structure](#project-structure)
+- [API Reference](#api-reference)
+- [Database Schema](#database-schema)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [1. Clone Repository](#1-clone-repository)
+  - [2. Server Setup](#2-server-setup)
+  - [3. Client Setup](#3-client-setup)
 - [Environment Variables](#environment-variables)
+  - [Server (`server/.env`)](#server-serverenv)
+  - [Client (`client/.env`)](#client-clientenv)
 - [Known Limitations](#known-limitations)
 - [Demo](#demo)
-  - [Video Walkthrough](#-video-walkthrough)
-  - [Screenshots](#-screenshots)
-  - [Try It Yourself](#-try-it-yourself)
-- [Author](#author)
+  - [Video Walkthrough](#video-walkthrough)
+  - [Demo Repository](#demo-repository)
+- [Author & License](#author--license)
 
 ---
 
-## About
+## Overview
 
-LingoAgent is a full-stack AI agent built **specifically for Next.js 14+ App Router landing pages and websites**. Point it at a GitHub repo, select your target languages, and it automatically extracts every hardcoded JSX string via Babel AST, translates them with Lingo.dev, wires up a runtime language switcher, commits all changes to a new branch, opens a GitHub PR, and triggers a live Vercel preview deployment — all in a single click.
+LingoAgent is a full-stack AI agent built specifically for **Next.js 14+ App Router** landing pages and web applications. Given a GitHub repository URL and a list of target languages, LingoAgent executes an automated localization pipeline:
 
-**Key benefits:**
-- Zero manual i18n boilerplate — no string wrapping, no config editing
-- Full source code safety: all execution runs inside an isolated E2B sandbox
-- Bring your own API keys to bypass free-tier limits
-- Real-time progress streaming via Server-Sent Events (SSE)
-
-> ⚠️ **Scope:** LingoAgent currently supports **Next.js 14+ App Router** projects only. Pages Router and other frameworks (Vite, Remix, etc.) are explicitly not supported at this time.
-
----
-
-## Approach
-
-**The problem isn't translation — it's orchestration.**
-
-Going multilingual is one of the most commonly requested and most commonly abandoned features in software development. AI tools like Lingo.dev have dramatically lowered the cost of the translation step itself — but developers still need to read the docs, configure the tooling, run the CLI, manage output files, open a PR, and set up a preview. That's still hours of focused work per project.
-
-The core problem LingoAgent solves is the **orchestration gap** — the hours of developer time between *"we want multilingual support"* and *"here is a working branch with a live preview."*
-
-**Lingo.dev handles translation. We handle everything else.**
-
-Lingo.dev provides five powerful tools — the Compiler (build-time AST translation), the CLI (multi-format translation runner), the CI/CD GitHub Action, the SDK (runtime translation for 7+ languages), and the MCP Server (framework-specific setup instructions for AI assistants). LingoAgent leverages the **SDK** for string translation and the **MCP Server** for correct i18n scaffolding, building an autonomous pipeline around them:
-
-| What Lingo.dev Still Requires a Human For | What LingoAgent Does Instead |
-|---|---|
-| Reading and understanding the documentation | Agent queries the Lingo.dev MCP server for exact setup instructions |
-| Cloning the repository locally | Agent clones into an isolated E2B sandbox |
-| Detecting the framework and choosing the right setup path | Agent reads `package.json` and config files automatically |
-| Modifying `next.config.ts` and `layout.tsx` correctly | Agent applies verified changes from MCP instructions |
-| Writing the `i18n.json` configuration file | Agent generates it from the user's selected locales |
-| Running `npm install` and the translation engine | Agent executes inside the sandbox |
-| Creating a branch and opening a pull request | Agent calls the GitHub API via Octokit |
-| Setting up a preview deployment | Agent triggers Vercel and polls until ready |
-
-**Three principles drove every build decision:**
-
-1. **Reliability over breadth.** A demo that works perfectly for Next.js App Router is worth more than a demo that claims to support five frameworks but breaks on all of them. Scope was ruthlessly controlled around the happy path.
-
-2. **Observable beats fast.** Users can tolerate a 3-minute process. They cannot tolerate a 3-minute black box. Every meaningful action the agent takes is streamed to the user in real time via Server-Sent Events.
-
-3. **LLM as planner, not executor.** The Groq LLM is only ever shown *one* tool schema at a time and asked for arguments — the server executes the tool deterministically. This avoids hallucination and SDK timeout pitfalls while retaining the flexibility of LLM-driven orchestration.
-
-**Why Next.js App Router — and only that?**
-
-Lingo.dev provides its deepest, most battle-tested support for Next.js App Router. Its MCP server, compiler integration, and SDK are all tuned against this stack. Supporting additional frameworks (Vite, Remix, Pages Router) would each require separate detection logic, different file patching strategies, different i18n scaffolding patterns, and independent end-to-end testing — multiplying the surface area several times over.
-
-In a hackathon context, doing one thing reliably is far more valuable than doing five things poorly. A flawless demo on Next.js App Router beats a fragile multi-framework agent every time. This is a deliberate constraint, not an oversight — and it directly maps to where Lingo.dev itself shines most.
+1. Clones the target repository into an isolated cloud sandbox (E2B).
+2. Inspects project structure, routing conventions, and dependencies.
+3. Extracts translatable JSX text nodes and attribute strings (`placeholder`, `title`, `alt`, `aria-label`, `label`) using a Babel AST parser.
+4. Translates extracted strings across selected locales using the Lingo.dev SDK.
+5. Injects a self-contained runtime language switcher and context provider into the root layout (`layout.tsx`).
+6. Commits changes atomically to a dedicated Git branch and opens a GitHub Pull Request via the Octokit REST API.
+7. Triggers and monitors a Vercel preview deployment, streaming real-time logs back to the user via Server-Sent Events (SSE).
 
 ---
 
-## Architecture — High-Level Design
+## The Orchestration Gap
 
-The system consists of three primary layers: a **Next.js frontend** for user interaction and live log display, a **NestJS backend** for agent orchestration and job management, and a collection of **external services** (E2B, GitHub, Lingo.dev MCP, Vercel) that the agent coordinates between.
+AI translation services have lowered the friction of language translation. However, integrating internationalization into an existing codebase remains an orchestration bottleneck requiring multiple manual steps:
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                      Browser (User)                     │
-│                                                         │
-│  Next.js 14 App Router (Client - :3000)                 │
-│  ┌────────────┬─────────────┬───────────────────────┐  │
-│  │  /login    │  /dashboard │  /jobs/[jobId]         │  │
-│  │  GitHub    │  New Job /  │  SSE log stream        │  │
-│  │  OAuth     │  History /  │  + PR / Preview links  │  │
-│  │  page      │  Settings   │                        │  │
-│  └────────────┴─────────────┴───────────────────────┘  │
-└───────────────────────┬─────────────────────────────────┘
-                        │ REST + SSE (HTTP/1.1)
-                        ▼
-┌─────────────────────────────────────────────────────────┐
-│     NestJS API Server — Render (:3001)                  │
-│                                                         │
-│  AuthGuard (Bearer token = GitHub OAuth token)          │
-│  AgentController  →  AgentService                       │
-│  JobsService (Prisma + Neon PostgreSQL)                 │
-│                                                         │
-│  ┌───────────────────────────────────────────────────┐  │
-│  │          Agent Pipeline (per job)                 │  │
-│  │  Groq LLM (llama-3.3-70b) — tool call planner    │  │
-│  │  7 sequential tools executed in E2B sandbox       │  │
-│  └───────────────────────────────────────────────────┘  │
-│                                                         │
-│  External Services:                                     │
-│  ├── GitHub (Octokit) — clone / branch / PR            │
-│  ├── E2B — isolated sandbox execution                  │
-│  ├── Lingo.dev SDK + MCP — string translation          │
-│  └── Vercel API — preview deployment                   │
-└─────────────────────────────────────────────────────────┘
-                        │
-                        ▼
-                Neon PostgreSQL (jobs, logs)
+- Reading library documentation and configuring locale routing.
+- Finding and extracting hardcoded text across dozens of UI components.
+- Maintaining separate dictionary and translation resource files.
+- Modifying root layouts and injecting context providers.
+- Creating branches, pushing changes, opening pull requests, and validating builds.
+
+LingoAgent closes this gap by combining an LLM planner with deterministic tools running inside an isolated sandbox environment.
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                          The Orchestration Gap                         │
+│                                                                        │
+│   "We want multilingual support" ──▶ [ Manual Work: 3-5 hours ]        │
+│                                      - Babel AST string extraction     │
+│                                      - Locale dictionary scaffolding   │
+│                                      - Root layout & context injection │
+│                                      - Git branching & PR creation     │
+│                                      - Vercel preview deployment       │
+│                                                                        │
+│   With LingoAgent ───────────────▶ [ Automated Run: ~3 minutes ]       │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Key design decisions:**
+### Core Design Principles
 
-| Decision | Rationale |
-|---|---|
-| Monorepo (`/client` + `/server`) | Clear separation of concerns; each can be deployed independently |
-| SSE (not WebSockets) | One-way log streaming is all we need; SSE is simpler and HTTP-native |
-| E2B sandbox | Complete process isolation — git, npm, node all run in a throwaway VM |
-| Sequential tool forcing | Prevents the LLM from skipping steps or calling tools out of order |
-| RxJS `ReplaySubject` per job | Late-joining SSE connections replay all past events from job start |
-
-**Job lifecycle:** Each job transitions through five states: `pending` → `running` → `completed` / `failed` / `cancelled`. The frontend opens an SSE connection via `/api/agent/stream/:jobId` and receives real-time `log`, `progress`, `complete`, or `error` events until the job terminates.
+1. **Deterministic Execution over Free-form Agent Actions:** The LLM acts as a planner selecting parameters; tool execution is strictly orchestrated by the NestJS backend.
+2. **Process Isolation:** All repository inspection, npm installation, AST extraction, and file modifications execute within a throwaway E2B cloud micro-VM.
+3. **Full Visibility:** Every step emits structured log events streamed over HTTP Server-Sent Events (SSE) to the frontend dashboard.
+4. **Resilient Fallbacks:** If Babel AST dynamic loading fails inside a repository, the pipeline falls back to a regex text scanner to ensure translation continuity.
 
 ---
 
-## Auth Flow
+## Architecture
 
-LingoAgent uses GitHub OAuth exclusively — no passwords, no separate accounts.
+The system is structured as a decoupled monorepo containing a Next.js 14 frontend (`/client`) and a NestJS 11 backend (`/server`).
 
+### System Architecture
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                          Browser (User)                         │
+│                                                                 │
+│   Next.js 14 App Router Client (:3000 / Vercel)                 │
+│   ├── /login           (GitHub OAuth via NextAuth.js)           │
+│   ├── /dashboard       (Job submission, history, API keys)      │
+│   └── /jobs/[jobId]    (Real-time log stream & result card)     │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │
+                                 │ HTTP REST (JSON) + SSE (text/event-stream)
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    NestJS API Server (:3001 / Render)           │
+│                                                                 │
+│   ├── Global Prefix: /api                                       │
+│   ├── Swagger OpenAPI: /docs                                    │
+│   ├── AuthGuard: Bearer token validation (GitHub OAuth token)   │
+│   ├── AgentController & AgentService                            │
+│   ├── JobsService (Prisma ORM 7)                                │
+│   └── Per-Job SSE Broker (RxJS ReplaySubject)                   │
+└───────┬────────────────┬────────────────┬────────────────┬──────┘
+        │                │                │                │
+        ▼                ▼                ▼                ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│  Neon Cloud  │ │  E2B Cloud   │ │  Groq Cloud  │ │  External    │
+│  PostgreSQL  │ │  Sandbox     │ │  LLM Engine  │ │  Services    │
+│              │ │              │ │              │ │              │
+│  - Job state │ │  - git clone │ │  - Llama 3.3 │ │  - Lingo.dev │
+│  - Log cache │ │  - Babel AST │ │    70B tool  │ │    SDK & MCP │
+│  - Run URLs  │ │  - i18n run  │ │    planner   │ │  - GitHub API│
+│              │ │  - Isolated  │ │              │ │  - Vercel API│
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
 ```
-User                 Next.js Client        NextAuth          GitHub OAuth
- │                        │                   │                  │
- │── clicks "Sign in" ───▶│                   │                  │
- │                        │── GET /api/auth/signin/github ──────▶│
- │                        │                   │◀── redirect ─────│
- │                        │◀── callback with code ───────────────│
- │                        │── exchange code ──▶│                  │
- │                        │◀── access_token ───│                  │
- │                        │                   │                  │
- │                   Session created           │                  │
- │                   (JWT with githubToken)    │                  │
- │                        │                   │                  │
- │── /dashboard ─────────▶│                   │                  │
- │                        │                                       │
- │ (On every API call)    │                                       │
- │                        │── POST /agent/run ──▶ NestJS Server   │
- │                        │   Authorization: Bearer <githubToken> │
- │                        │                      ▼               │
- │                        │              AuthGuard validates      │
- │                        │              token → attaches to req  │
- │                        │              AgentService uses it     │
- │                        │              to call GitHub APIs      │
+
+### Data & Event Flow
+
+```text
+User Submits Job (Repo URL + Target Locales)
+  │
+  ├── 1. POST /api/agent/run ──▶ Backend creates Job record in PostgreSQL (status: 'pending')
+  │                               Returns jobId immediately to client
+  │
+  ├── 2. Frontend opens GET /api/agent/stream/:jobId (SSE connection)
+  │      Backend subscribes client to an RxJS ReplaySubject (replays prior logs if reconnected)
+  │
+  ├── 3. Backend triggers AgentService.runPipeline() asynchronously:
+  │      - Prompts Groq (Llama 3.3 70B) with tool schemas sequentially
+  │      - Manually executes selected tools against E2B Sandbox, GitHub, or Vercel
+  │      - Streams progress and log entries to SSE subject
+  │
+  └── 4. Pipeline completes:
+         - Backend persists final status ('completed' or 'failed') and logs to PostgreSQL
+         - SSE emits { type: 'complete', data: { prUrl, previewUrl } }
+         - Frontend renders live Pull Request and Vercel preview links with confetti feedback
 ```
 
-**Why the GitHub token doubles as the API bearer token:**
-The same token that authenticates the user with GitHub is forwarded to the NestJS server as a Bearer token. The server validates it's present and non-empty, then uses it directly to call GitHub APIs (creating branches, committing files, opening PRs) on behalf of the user. No separate JWT or session store is needed on the backend.
+---
+
+## Authentication Flow
+
+Authentication relies on GitHub OAuth via NextAuth.js. The issued GitHub access token serves a dual purpose: client session authentication and backend GitHub API authorization.
+
+```text
+User                  Next.js Client             NextAuth.js              GitHub OAuth
+ │                          │                         │                         │
+ ├── 1. Clicks "Sign in" ──▶│                         │                         │
+ │                          ├── 2. GET /api/auth ────▶│                         │
+ │                          │      /signin/github     ├── 3. OAuth redirect ───▶│
+ │                          │                         │                         │
+ │                          │                         │◀── 4. Callback w/ code ─┤
+ │                          │                         ├── 5. Exchange code ────▶│
+ │                          │                         │◀── 6. Access token ─────┤
+ │                          │◀── 7. Session created ──┤                         │
+ │                          │   (JWT stores token)    ┴                         ┴
+ │                          │
+ ├── 8. Submits Job ───────▶│
+ │                          │
+ │                          ├── 9. POST /api/agent/run ─────────────────────────┐
+ │                          │      Headers: Bearer <githubToken>                │
+ │                          │                                                   ▼
+ │                          │                                       ┌───────────────────────┐
+ │                          │                                       │   NestJS AuthGuard    │
+ │                          │                                       │   - Validates token   │
+ │                          │                                       │   - Passes to Octokit │
+ │                          │                                       │     for PR creation   │
+ ┴                          ┴                                       └───────────────────────┘
+```
+
+No separate user database or custom credentials store is required on the backend.
 
 ---
 
 ## AI Agent Pipeline
 
-Each job runs a **strictly sequential 7-step pipeline**. The Groq LLM is only ever shown one tool schema at a time (`toolChoice: 'required'`), forcing it to call that exact tool and return the arguments. The server then executes the tool manually (preventing SDK timeout issues) and feeds the result back to the LLM's conversation history before the next step.
+### The 7-Step Tool Sequence
 
-```
-POST /api/agent/run
-      │
-      ▼
+The pipeline executes a strictly sequential 7-tool progression. To avoid hallucination, tool misordering, and LLM HTTP timeouts during long operations, the Groq LLM is presented with only **one tool schema at a time** (`toolChoice: 'required'`). The server receives the tool call parameters and executes the underlying service call outside the LLM request loop.
+
+```text
   1. clone_repo
-     └── Clones the repo into an E2B sandbox
-      │
-      ▼
+     │ Clones repository via git inside a fresh E2B micro-VM sandbox.
+     ▼
   2. detect_framework
-     └── Identifies Next.js version, App Router vs Pages, layout path
-      │
-      ▼
+     │ Inspects package.json, directory structure, App Router paths, and layout.tsx location.
+     ▼
   3. analyze_repo
-     └── Checks for existing i18n libraries, counts JSX files
-      │
-      ▼
+     │ Checks for existing i18n configurations and inventories .tsx / .jsx files.
+     ▼
   4. setup_lingo
-     └── Writes i18n.json, provider/switcher/translator components,
-         patches layout.tsx (via Lingo.dev MCP tool)
-      │
-      ▼
+     │ Queries Lingo.dev MCP server for scaffolding instructions.
+     │ Writes i18n.json configuration.
+     │ Generates zero-dependency runtime: provider.tsx, switcher.tsx, text-translator.tsx.
+     │ Injects LanguageProvider and LanguageSwitcher into root layout.tsx.
+     ▼
   5. install_and_translate
-     ├── npm install (for Babel AST parsing)
-     ├── Babel AST extraction → finds ALL hardcoded JSX strings
-     ├── Translates chunks via Lingo.dev SDK → public/locales/*.json
-     └── ⚠️ Aborts with guidance if Lingo.dev quota/key is invalid
-      │
-      ▼
+     │ Runs npm install --legacy-peer-deps inside sandbox.
+     │ Executes Babel AST script traversing JSX elements and attributes.
+     │ Batches text strings and sends to Lingo.dev SDK (batchTranslate).
+     │ Writes translated bundles to public/locales/<locale>.json.
+     ▼
   6. commit_and_push
-     └── Creates branch, commits all changes, opens GitHub PR
-      │
-      ▼
+     │ Reads modified files from sandbox.
+     │ Creates Git branch (lingo/add-multilingual-<timestamp>).
+     │ Creates Git blobs, tree, and commit atomically via GitHub Git Data API.
+     │ Opens ready-to-merge Pull Request with change summary and word count metrics.
+     ▼
   7. trigger_preview
-     └── Triggers Vercel deployment, polls until Ready
-      │
-      ▼
-  SSE: { type: 'complete', data: { prUrl, previewUrl } }
+     │ Calls Vercel Deployments API for the newly created branch.
+     │ Polls deployment status every 10 seconds until ready.
+     ▼
+  Complete (Emits PR URL and live Vercel Preview URL via SSE)
 ```
 
-**Tool data chain:** Each tool's return value feeds the next. The LLM manages this chain through its context window — passing the `sandboxId` from `clone_repo` into every subsequent tool, the `framework` from `detect_framework` into `setup_lingo`, and the `branchName` from `commit_and_push` into `trigger_preview`.
+### Runtime Translation Strategy
 
-**Error handling:**
-- **Groq rate limit / invalid key** → pipeline aborts immediately, user is guided to Settings tab to add their own key
-- **Lingo.dev quota exceeded / invalid key** → same immediate abort with actionable guidance
-- **LLM tool hallucination** → up to 3 retries with a correction prompt before failing
-- **Manual cancel** → E2B sandbox killed instantly to stop billing
+Earlier builds evaluated `@lingo.dev/compiler` at build time. However, due to packaging constraints in downstream compiler plugins, LingoAgent implements a self-contained runtime architecture:
 
-**Custom API Keys:**
-Users can supply their own Lingo.dev and Groq API keys in `Dashboard → Settings`. These are stored in `localStorage` and sent with each job — overriding the server defaults, bypassing shared free-tier quotas.
+1. **Extraction (Build Step):** AST parsing locates JSX text nodes and translatable attributes (`placeholder`, `title`, `alt`, `aria-label`, `label`, `aria-placeholder`, `aria-description`, `content`).
+2. **Translation Storage:** Translations are stored as static JSON files in `public/locales/<locale>.json`.
+3. **Runtime Switching:** A lightweight `LanguageProvider` React Context and `TextTranslator` DOM mutation observer update the page content dynamically without requiring full page reloads or third-party runtime dependencies.
+
+### Resilience and Error Handling
+
+- **Rate Limits & API Keys:** If the default Groq or Lingo.dev API keys exceed rate limits, the pipeline halts gracefully and instructs the user to configure custom keys in `Dashboard → Settings`. Custom keys are stored in browser `localStorage` and sent per-job.
+- **AST Fallback:** If `@babel/parser` cannot be imported dynamically from the target project's `node_modules`, the extractor falls back to a regex scanner.
+- **Sandbox Termination:** When a job completes, fails, or is cancelled via `POST /api/agent/cancel/:jobId`, the backend immediately terminates the E2B sandbox instance to prevent dangling compute resources.
 
 ---
 
 ## Tech Stack
 
-### Frontend
+### Frontend (`/client`)
+
 | Technology | Version | Purpose |
 |---|---|---|
-| Next.js | 14.2 | React framework, App Router |
-| NextAuth.js | 4.x | GitHub OAuth, session management |
-| React | 18 | UI |
-| Tailwind CSS | 3.x | Styling |
-| TypeScript | 5.x | Type safety |
+| Next.js | 14.2.14 | React framework (App Router architecture) |
+| React | 18.2.0 | User interface library |
+| TypeScript | 5.5.4 | Static type safety |
+| Tailwind CSS | 3.4.13 | Utility-first styling with custom glassmorphism effects |
+| NextAuth.js | 4.24.13 | GitHub OAuth authentication and session management |
 
-### Backend
+### Backend (`/server`)
+
 | Technology | Version | Purpose |
 |---|---|---|
-| NestJS | 11 | API server, dependency injection |
-| Prisma | 7 | ORM, DB migrations |
-| Neon PostgreSQL | — | Serverless Postgres (job + log storage) |
-| RxJS | 7.x | `ReplaySubject` per-job SSE streams |
-| Vercel AI SDK (`ai`) | 6.x | `generateText` + tool calling abstraction |
-| `@ai-sdk/groq` | 3.x | Groq provider for the AI SDK |
-| Groq (llama-3.3-70b-versatile) | — | LLM — tool argument generation |
-| E2B | 2.x | Isolated sandbox VMs for code execution |
-| Lingo.dev SDK | 0.131 | Translation engine (chunked API) |
-| Lingo.dev MCP | — | Tool-call interface for i18n scaffolding |
-| Octokit | 22.x | GitHub REST API (clone, branch, PR) |
-| Vercel API | — | Preview deployments |
-| Zod | 4.x | Runtime schema validation for tool inputs |
-| class-validator | 0.14 | DTO validation on API endpoints |
-
-### External Services
-| Service | Role |
-|---|---|
-| [E2B](https://e2b.dev) | Cloud sandbox execution environment |
-| [Lingo.dev](https://lingo.dev) | MCP server for setup instructions + SDK for translation |
-| [GitHub API](https://github.com) | Repository operations, branch creation, PR creation |
-| [Vercel API](https://vercel.com) | Preview deployment triggering and status polling |
-| [Groq](https://groq.com) | Fast LLM inference (Llama 3.3 70B) |
-| [Neon](https://neon.tech) | Serverless PostgreSQL |
+| NestJS | 11.0.1 | Modular TypeScript API server |
+| Prisma ORM | 7.4.1 | Schema modeling, migrations, and database access |
+| PostgreSQL (Neon) | Serverless | Persistent storage for jobs, logs, and deployment URLs |
+| Vercel AI SDK (`ai`) | 6.0.96 | Unified interface for LLM tool calling and text generation |
+| `@ai-sdk/groq` | 3.0.24 | Groq provider integration for Llama 3.3 70B inference |
+| E2B Sandbox SDK | 2.12.1 | Isolated cloud VM execution environment |
+| Lingo.dev SDK | 0.131.7 | Batch translation engine |
+| Model Context Protocol (`@modelcontextprotocol/sdk`) | 1.26.0 | Client for Lingo.dev MCP setup instruction server |
+| Octokit (`@octokit/rest`) | 22.0.1 | GitHub REST API client for branch, commit, and PR management |
+| RxJS | 7.8.1 | Event streaming via `ReplaySubject` for SSE connections |
+| Swagger (`@nestjs/swagger`) | 11.2.6 | OpenAPI specification and interactive documentation |
+| Zod & class-validator | 4.x / 0.14 | Schema definitions and runtime HTTP DTO validation |
 
 ---
 
-## Setup & Local Dev
+## Project Structure
+
+```text
+lingo-agent/
+├── client/                              # Next.js 14 Frontend
+│   ├── app/
+│   │   ├── api/auth/[...nextauth]/      # NextAuth GitHub provider route
+│   │   ├── dashboard/                   # Main dashboard (forms, history, settings)
+│   │   ├── jobs/[jobId]/                # Live log stream & result view
+│   │   ├── login/                       # GitHub OAuth login page
+│   │   ├── globals.css                  # Tailwind styles & custom animations
+│   │   ├── layout.tsx                   # Root client layout
+│   │   └── page.tsx                     # Route guard & redirect
+│   ├── components/                      # UI components (stepper, forms, cards)
+│   ├── hooks/                           # Custom hooks (useJobStream, useSettings)
+│   ├── lib/                             # API clients, constants, authOptions
+│   └── types/                           # TypeScript declarations
+│
+├── server/                              # NestJS 11 API Backend
+│   ├── prisma/
+│   │   ├── migrations/                  # SQL migration history
+│   │   └── schema.prisma                # Job data model & JobStatus enum
+│   ├── src/
+│   │   ├── agent/                       # Core orchestration engine
+│   │   │   ├── dto/                     # StartJobDto, JobResponseDto
+│   │   │   ├── prompts/                 # System prompt definitions
+│   │   │   ├── tools/                   # 7 sequential tool implementations
+│   │   │   ├── agent.controller.ts      # REST & SSE endpoints (/api/agent/*)
+│   │   │   └── agent.service.ts         # Pipeline execution loop
+│   │   ├── auth/                        # Bearer token AuthGuard
+│   │   ├── common/                      # Exception filters, utils, types
+│   │   ├── github/                      # Octokit integration service
+│   │   ├── jobs/                        # Prisma jobs repository service
+│   │   ├── mcp/                         # Lingo.dev MCP client service
+│   │   ├── sandbox/                     # E2B cloud sandbox manager
+│   │   ├── vercel/                      # Vercel deployment trigger & polling
+│   │   ├── health.controller.ts         # GET /api/health endpoint
+│   │   ├── app.module.ts                # Root application module
+│   │   └── main.ts                      # NestJS bootstrap, CORS, validation, Swagger
+│   ├── prisma.config.ts                 # Prisma configuration file
+│   └── package.json                     # Server dependencies and scripts
+│
+└── README.md
+```
+
+---
+
+## API Reference
+
+The server exposes a REST API with global prefix `/api` and an interactive Swagger UI at `/docs`.
+
+### Authentication
+Protected endpoints require a GitHub personal access token passed in the `Authorization` header:
+```text
+Authorization: Bearer <github_personal_access_token>
+```
+
+### Endpoints
+
+#### 1. Start Job
+```http
+POST /api/agent/run
+Content-Type: application/json
+Authorization: Bearer <githubToken>
+
+{
+  "repoUrl": "https://github.com/owner/repo",
+  "locales": ["ja", "fr", "ar"],
+  "githubToken": "ghp_...",
+  "lingoApiKey": "optional_custom_key",
+  "groqApiKey": "optional_custom_key"
+}
+```
+**Response (`201 Created`):**
+```json
+{
+  "jobId": "f2a89342-83b1-4c17-9104-e3c79a4de54a"
+}
+```
+
+#### 2. Stream Job Events (SSE)
+```http
+GET /api/agent/stream/:jobId
+Accept: text/event-stream
+```
+Emits real-time SSE events:
+- `log`: Raw execution and step progress logs.
+- `complete`: Final job payload containing `prUrl` and `previewUrl`.
+- `error`: Failure details with contextual step identifier.
+
+#### 3. Get Job Status
+```http
+GET /api/agent/job/:jobId
+Authorization: Bearer <githubToken>
+```
+**Response (`200 OK`):**
+```json
+{
+  "id": "f2a89342-83b1-4c17-9104-e3c79a4de54a",
+  "repoUrl": "https://github.com/owner/repo",
+  "locales": ["ja", "fr", "ar"],
+  "status": "completed",
+  "prUrl": "https://github.com/owner/repo/pull/1",
+  "previewUrl": "https://repo-preview.vercel.app",
+  "error": null,
+  "createdAt": "2026-09-12T12:00:00.000Z",
+  "updatedAt": "2026-09-12T12:02:45.000Z"
+}
+```
+
+#### 4. Cancel Running Job
+```http
+POST /api/agent/cancel/:jobId
+Authorization: Bearer <githubToken>
+```
+**Response (`200 OK`):**
+```json
+{
+  "message": "Job cancelled"
+}
+```
+
+#### 5. Health Check
+```http
+GET /api/health
+```
+**Response (`200 OK`):**
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-09-12T17:08:22.000Z",
+  "uptime": 1842.12
+}
+```
+
+---
+
+## Database Schema
+
+Database management is handled by Prisma ORM connecting to a Neon PostgreSQL database.
+
+```prisma
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+enum JobStatus {
+  pending
+  running
+  completed
+  failed
+  cancelled
+}
+
+model Job {
+  id         String    @id @default(uuid())
+  repoUrl    String
+  locales    String[]
+  status     JobStatus @default(pending)
+  prUrl      String?
+  previewUrl String?
+  error      String?
+  logs       Json      @default("[]")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+```
+
+---
+
+## Getting Started
 
 ### Prerequisites
-- Node.js 20+
-- A GitHub OAuth App ([create one here](https://github.com/settings/developers))
-- Free accounts for: [Groq](https://console.groq.com/keys), [E2B](https://e2b.dev), [Lingo.dev](https://lingo.dev/en/app), [Neon](https://neon.tech), [Vercel](https://vercel.com)
 
-### 1. Clone the repo
+- **Node.js**: `v20.x` or higher
+- **npm**: `v10.x` or higher
+- **PostgreSQL**: Neon serverless connection string or local PostgreSQL instance
+- **API Accounts**:
+  - [GitHub OAuth App](https://github.com/settings/developers)
+  - [Groq Cloud Console](https://console.groq.com/keys) (Llama 3.3 70B)
+  - [E2B](https://e2b.dev) (Micro-VM sandbox)
+  - [Lingo.dev](https://lingo.dev/en/app) (Translation SDK key)
+  - [Vercel](https://vercel.com/account/tokens) (Personal Access Token)
+
+---
+
+### 1. Clone Repository
 
 ```bash
 git clone https://github.com/Kashif-Rezwi/lingo-agent.git
 cd lingo-agent
 ```
 
-### 2. Set up the server
+---
+
+### 2. Server Setup
 
 ```bash
 cd server
+
+# Copy environment configuration
 cp .env.example .env
-# Fill in all values in .env (see Environment Variables below)
+# Edit server/.env with your API credentials
+
+# Install dependencies
 npm install
+
+# Push Prisma schema to database and generate client
+npx prisma db push
 npx prisma generate
-npm run start        # Starts on :3001
+
+# Start server in watch mode (:3001)
+npm run start:dev
 ```
 
-### 3. Set up the client
+---
+
+### 3. Client Setup
+
+In a separate terminal window:
 
 ```bash
 cd client
+
+# Copy environment configuration
 cp .env.example .env
-# Fill in NEXTAUTH_SECRET and GITHUB_* values
+# Edit client/.env with GitHub OAuth credentials
+
+# Install dependencies
 npm install
-npm run dev          # Starts on :3000
+
+# Start Next.js development server (:3000)
+npm run dev
 ```
 
-### 4. Open the app
-
-Navigate to [http://localhost:3000](http://localhost:3000), sign in with GitHub, and submit your first translation job.
+Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
 ## Environment Variables
 
-### `server/.env`
+### Server (`server/.env`)
 
 | Variable | Required | Description |
 |---|---|---|
-| `PORT` | ✓ | Server port (default: `3001`) |
-| `FRONTEND_URL` | ✓ | Client origin for CORS (e.g. `http://localhost:3000`) |
-| `DATABASE_URL` | ✓ | Neon PostgreSQL connection string |
-| `GROQ_API_KEY` | ✓ | Groq API key — LLM calls ([get one](https://console.groq.com/keys)) |
-| `DEFAULT_AI_MODEL` | — | Model name (default: `llama-3.3-70b-versatile`) |
-| `E2B_API_KEY` | ✓ | E2B sandbox key ([get one](https://e2b.dev)) |
-| `LINGO_API_KEY` | ✓ | Lingo.dev translation key ([get one](https://lingo.dev/en/app)) |
-| `LINGO_MCP_SERVER_URL` | ✓ | Lingo.dev MCP endpoint (default: `https://mcp.lingo.dev/main`) |
-| `VERCEL_API_TOKEN` | ✓ | Vercel personal token for deployments |
-| `VERCEL_TEAM_ID` | — | Team ID (only needed for team accounts) |
+| `PORT` | Optional | Port for the NestJS HTTP server (default: `3001`). |
+| `FRONTEND_URL` | Required | Allowed CORS origin (e.g. `http://localhost:3000` or production URL). |
+| `DATABASE_URL` | Required | PostgreSQL connection string (supports Neon pooling connections). |
+| `GROQ_API_KEY` | Required | Groq API key used for Llama 3.3 70B inference. |
+| `DEFAULT_AI_MODEL` | Optional | Model identifier (defaults to `llama-3.3-70b-versatile`). |
+| `E2B_API_KEY` | Required | E2B API key for provisioning cloud sandbox micro-VMs. |
+| `LINGO_API_KEY` | Required | Lingo.dev API key for string translation. |
+| `LINGO_MCP_SERVER_URL`| Required | Lingo.dev Model Context Protocol server endpoint (`https://mcp.lingo.dev/main`). |
+| `VERCEL_API_TOKEN` | Required | Vercel Personal Access Token for triggering preview deployments. |
+| `VERCEL_TEAM_ID` | Optional | Vercel team identifier (only needed when deploying to a team scope). |
 
-### `client/.env`
+### Client (`client/.env`)
 
 | Variable | Required | Description |
 |---|---|---|
-| `NEXTAUTH_URL` | ✓ | Full URL of the client app (e.g. `http://localhost:3000`) |
-| `NEXTAUTH_SECRET` | ✓ | Random string for JWT signing (`openssl rand -base64 32`) |
-| `GITHUB_ID` | ✓ | GitHub OAuth App Client ID |
-| `GITHUB_SECRET` | ✓ | GitHub OAuth App Client Secret |
-| `NEXT_PUBLIC_API_URL` | ✓ | Server URL (e.g. `http://localhost:3001`) |
+| `NEXTAUTH_URL` | Required | Canonical URL of the Next.js app (`http://localhost:3000` in dev). |
+| `NEXTAUTH_SECRET` | Required | Cryptographic secret for signing JWTs (`openssl rand -base64 32`). |
+| `GITHUB_CLIENT_ID` | Required | GitHub OAuth Application Client ID. |
+| `GITHUB_CLIENT_SECRET`| Required | GitHub OAuth Application Client Secret. |
+| `NEXT_PUBLIC_API_URL` | Required | Full backend API base URL with `/api` prefix (default: `http://localhost:3001/api`). |
 
-> **Tip:** Users can also supply their own **Lingo.dev** and **Groq** API keys directly in `Dashboard → Settings` to bypass shared server-side quotas. Keys are stored locally in `localStorage` and never sent to any third party.
+> **Note on Client API URL:** `NEXT_PUBLIC_API_URL` must include the `/api` prefix to align with NestJS global routing prefix rules.
 
 ---
 
 ## Known Limitations
 
-These are deliberate scope constraints and known edge cases, not bugs:
-
-- **Next.js App Router only** — Pages Router, Vite, Remix, and other stacks are not supported
-- **Hardcoded strings in JS logic are not translated** — Babel AST extraction targets JSX text nodes and common string attributes (`placeholder`, `title`, `alt`, `aria-label`). Strings inside variables, error messages, or API responses may not be caught
-- **Large repos may time out** — E2B sandboxes have a configurable timeout (default 10 min). Repos with heavy `npm install` times or hundreds of JSX files may hit this limit
-- **No monorepo support** — the agent targets single-app repositories only
-- **Existing i18n setups may conflict** — if the repo already uses `next-intl`, `i18next`, or similar libraries, the agent's scaffolding may conflict with them
+- **Framework Target:** Exclusively designed for Next.js 14+ App Router projects. Next.js Pages Router, Vite, Remix, or Astro projects are not supported.
+- **Translatable String Scope:** Babel AST extraction targets JSX text nodes and common string attributes (`placeholder`, `title`, `alt`, `aria-label`, `label`, `aria-placeholder`, `aria-description`, `content`). Complex string concatenations or dynamic variables computed inside functions are skipped.
+- **Repository Architecture:** Configured for single-app repositories. Monorepo setups (`nx`, `turborepo` workspaces) are out of scope.
+- **Execution Timeout:** E2B sandboxes enforce a 10-minute upper execution threshold. Repositories with substantial dependency installation overhead may encounter sandbox timeouts.
 
 ---
 
 ## Demo
 
-### 🎬 Video Walkthrough
+### Video Walkthrough
 
 [![Watch the demo](https://img.shields.io/badge/▶_Watch_Demo-Google_Drive-blue?style=for-the-badge&logo=googledrive)](https://drive.google.com/drive/folders/1GW-W05pXK-dTD6qWeqy38LuvGFD2R1sI?usp=sharing)
 
-> A full end-to-end walkthrough showing LingoAgent translating a Next.js landing page into Japanese, French, and Arabic in under 3 minutes.
+Full end-to-end recording demonstrating repository cloning, Babel AST string extraction, Lingo.dev translation, automated GitHub Pull Request creation, and live Vercel preview deployment.
 
-### 📸 Screenshots
+### Demo Repository
 
-<!-- TODO: Replace placeholder images with actual screenshots -->
-
-| Dashboard | Live Agent Logs | Result — PR & Preview |
-|---|---|---|
-| ![Dashboard](https://via.placeholder.com/400x250?text=Dashboard) | ![Live Logs](https://via.placeholder.com/400x250?text=Live+Logs) | ![Result](https://via.placeholder.com/400x250?text=PR+%26+Preview) |
-
-### 🧪 Try It Yourself
-
-**Demo repo:** [Kashif-Rezwi/lingo-agent-demo-app](https://github.com/Kashif-Rezwi/lingo-agent-demo-app) — a clean Next.js 14 App Router landing page, purpose-built for testing.
-
-1. Sign into LingoAgent with your GitHub account
-2. Paste `https://github.com/Kashif-Rezwi/lingo-agent-demo-app` as the repository URL
-3. Select your target languages (e.g. Japanese, French, Arabic)
-4. Click **Start** and watch the agent work in real time
-5. Review the resulting GitHub PR and live Vercel preview
+Test the pipeline using the official companion demo project:
+- **Repository:** [Kashif-Rezwi/lingo-agent-demo-app](https://github.com/Kashif-Rezwi/lingo-agent-demo-app)
+- **Description:** A clean Next.js 14 App Router landing page pre-configured for i18n pipeline validation.
 
 ---
 
-## Author
+## Author & License
 
-**Kashif Rezwi** — Built for the [Lingo.dev Hackathon 2025](https://lingo.dev)
+- **Author:** [Kashif Rezwi](https://github.com/Kashif-Rezwi)
+- **Context:** Built for the [Lingo.dev Hackathon 2025](https://lingo.dev)
+- **License:** No license file currently committed (all rights reserved; maintainer confirmation required).
